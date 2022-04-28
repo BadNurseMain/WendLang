@@ -5,11 +5,6 @@
 //TODO: Create AST
 //TODO: Design Assembler
 
-
-//What to do:
-//Turn Source code into ASM.
-
-
 #include "Compile.h"
 
 //Getting Tokens.
