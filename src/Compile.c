@@ -93,6 +93,9 @@ uint8_t createInstruction(uint8_t Instruction, uint8_t* VarA, uint8_t* VarB)
     char SUBTRACT[] = "sub ";
     char MULTIPLY[] = "mul ";
     char DIVIDE[] = "div ";
+    char AND[] = "and ";
+    char XOR[] = "xor ";
+    char OR[] = "or ";
 
     char REGISTERS[4][4] =
     {
@@ -129,7 +132,7 @@ uint8_t createInstruction(uint8_t Instruction, uint8_t* VarA, uint8_t* VarB)
             char NEWVARSTART[] = "[";
             char NEWVAREND[] = "], ";
 
-            String = stringifyInstruction(5, MOVE, NEWVARSTART, VarA, NEWVAREND, REGISTERS[0]);
+            String = stringifyInstruction(6, MOVE, NEWVARSTART, VarA, NEWVAREND, REGISTERS[0], END);
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
             break;
@@ -137,14 +140,101 @@ uint8_t createInstruction(uint8_t Instruction, uint8_t* VarA, uint8_t* VarB)
 
         case '-':
         {
-        
+            uint8_t* String = stringifyInstruction(5, MOVE, REGISTERS[0], VARSTART, VarA, VAREND);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+            String = stringifyInstruction(5, MOVE, REGISTERS[3], VARSTART, VarB, VAREND);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+
+            String = stringifyInstruction(5, SUBTRACT, REGISTERS[0], START, REGISTERS[3], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+            char NEWVARSTART[] = "[";
+            char NEWVAREND[] = "], ";
+
+            String = stringifyInstruction(6, MOVE, NEWVARSTART, VarA, NEWVAREND, REGISTERS[0], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
             break;
+        }
+
+        case '&':
+        {
+            uint8_t* String = stringifyInstruction(5, MOVE, REGISTERS[0], VARSTART, VarA, VAREND);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+            String = stringifyInstruction(5, MOVE, REGISTERS[3], VARSTART, VarB, VAREND);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+
+            String = stringifyInstruction(5, AND, REGISTERS[0], START, REGISTERS[3], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+            char NEWVARSTART[] = "[";
+            char NEWVAREND[] = "], ";
+
+            String = stringifyInstruction(6, MOVE, NEWVARSTART, VarA, NEWVAREND, REGISTERS[0], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+        }
+
+        case '^':
+        {
+            uint8_t* String = stringifyInstruction(5, MOVE, REGISTERS[0], VARSTART, VarA, VAREND);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+            String = stringifyInstruction(5, MOVE, REGISTERS[3], VARSTART, VarB, VAREND);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+
+            String = stringifyInstruction(5, XOR, REGISTERS[0], START, REGISTERS[3], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+            char NEWVARSTART[] = "[";
+            char NEWVAREND[] = "], ";
+
+            String = stringifyInstruction(6, MOVE, NEWVARSTART, VarA, NEWVAREND, REGISTERS[0], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+        }
+
+
+        case '|':
+        {
+            uint8_t* String = stringifyInstruction(5, MOVE, REGISTERS[0], VARSTART, VarA, VAREND);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+            String = stringifyInstruction(5, MOVE, REGISTERS[3], VARSTART, VarB, VAREND);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+
+            String = stringifyInstruction(5, OR, REGISTERS[0], START, REGISTERS[3], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+            char NEWVARSTART[] = "[";
+            char NEWVAREND[] = "], ";
+
+            String = stringifyInstruction(6, MOVE, NEWVARSTART, VarA, NEWVAREND, REGISTERS[0], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
         }
     }
 
     return 0;
 }
-
 
 uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
 {
@@ -184,6 +274,11 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
                 case '-': goto Syntax;
                 case '/': goto Syntax;
                 case '*': goto Syntax;
+
+                //Bitwise
+                case '&': goto Syntax;
+                case '^': goto Syntax;
+                case '|': goto Syntax;
 
                 //Declaration.
                 case ';': goto Syntax;
@@ -388,6 +483,14 @@ uint8_t calculateArithmetic()
     {
         if (TokenBuffer[x][0] == '+')
             createInstruction('+', TokenBuffer[x - 1], TokenBuffer[x + 1]);
+        if (TokenBuffer[x][0] == '-')
+            createInstruction('-', TokenBuffer[x - 1], TokenBuffer[x + 1]);
+        if (TokenBuffer[x][0] == '&')
+            createInstruction('&', TokenBuffer[x - 1], TokenBuffer[x + 1]);
+        if (TokenBuffer[x][0] == '|')
+            createInstruction('|', TokenBuffer[x - 1], TokenBuffer[x + 1]);
+        if (TokenBuffer[x][0] == '^')
+            createInstruction('^', TokenBuffer[x - 1], TokenBuffer[x + 1]);
     }
 
     return 0;
@@ -443,7 +546,6 @@ uint8_t writeVariables()
     fclose(OutputFile);
     return 0;
 }
-
 
 uint8_t compile(const uint8_t* FileLocation)
 {
