@@ -2,12 +2,11 @@
 //TODO: Check for Variables. (Done but does not have Scope)
 //TODO: Design Scope.
 //TODO: Design Stack for local Variables.
-//TODO: Create AST
-//TODO: Design Assembler
-
+//TODO: Create AST (Need to add Precedence.
 
 //What to do:
-//Make String ASM code more modular.
+//Make String ASM code more modular. (Done).
+//Introduce Functions.
 
 #include "Compile.h"
 
@@ -440,21 +439,9 @@ uint8_t calculateArithmetic()
             char MOV1[] = "mov [";
             char MOV2[] = "], ";
             char END[] = "\n\0";
-            uint16_t Length = (uint16_t)strlen(MOV1) + strlen(MOV2) + strlen(END);
-            Length += (uint16_t)strlen(NameBuffer[VARIABLENAME][x].Name);
-            Length += (uint16_t)strlen(TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 4]);
-
-            uint8_t* Buffer = malloc(Length + 1);
-            if (!Buffer) return 1;
-
-            strcpy(Buffer, MOV1);
-            strcat(Buffer, NameBuffer[VARIABLENAME][x].Name);
-            strcat(Buffer, MOV2);
-            strcat(Buffer, TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 4]);
-            strcat(Buffer, END);
-
-            Buffer[Length] = '\0';
-            fwrite(Buffer, 1, Length, OutputFile);
+            
+            uint8_t* Buffer = stringifyInstruction(5, MOV1, NameBuffer[VARIABLENAME][x].Name, MOV2, TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 4], END);
+            fwrite(Buffer, 1, strlen(Buffer), OutputFile);
             free(Buffer);
         }
         else
@@ -462,18 +449,8 @@ uint8_t calculateArithmetic()
             char MOV1[] = "mov [";
             char MOV2[] = "], 0\n\0";
 
-            uint16_t Length = (uint16_t)strlen(MOV1) + strlen(MOV2);
-            Length += (uint16_t)strlen(NameBuffer[VARIABLENAME][x].Name);
-
-            uint8_t* Buffer = malloc(Length + 1);
-            if (!Buffer) return 1;
-
-            strcpy(Buffer, MOV1);
-            strcat(Buffer, NameBuffer[VARIABLENAME][x].Name);
-            strcat(Buffer, MOV2);
-
-            Buffer[Length] = '\0';
-            fwrite(Buffer, 1, Length, OutputFile);
+            uint8_t* Buffer = stringifyInstruction(3, MOV1, NameBuffer[VARIABLENAME][x].Name, MOV2);
+            fwrite(Buffer, 1, strlen(Buffer), OutputFile);
             free(Buffer);
         }
     }
