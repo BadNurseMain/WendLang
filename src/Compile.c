@@ -54,13 +54,15 @@ FILE* OutputFile = 0;
 ⣿⠃⠃⠄⠄⠄⠄⠄⠄⣀⢀⠄⠄⡀⡀⢀⣤⣴⣤⣤⣀⣀⠄⠄⠄⠄⠄⠄⠁⢹
 */
 
+
+//Instruction related Functions.
 uint8_t* stringifyInstruction(uint8_t StringCount, ...)
 {
     //Get List.
     va_list List;
     va_start(List, StringCount);
 
-    uint32_t Length = 0;
+    size_t Length = 0;
 
     uint8_t** Buffer = malloc(sizeof(uint8_t*) * StringCount);
     if (!Buffer) return NULL;
@@ -87,16 +89,16 @@ uint8_t* stringifyInstruction(uint8_t StringCount, ...)
 uint8_t createInstruction(uint8_t Instruction, uint8_t* VarA, uint8_t* VarB)
 {
     //Strings to apply Instructions.
-    char MOVE[] = "mov ";
-    char ADDITION[] = "add ";
-    char SUBTRACT[] = "sub ";
-    char MULTIPLY[] = "mul ";
-    char DIVIDE[] = "div ";
-    char AND[] = "and ";
-    char XOR[] = "xor ";
-    char OR[] = "or ";
+    uint8_t MOVE[] = "mov ";
+    uint8_t ADDITION[] = "add ";
+    uint8_t SUBTRACT[] = "sub ";
+    uint8_t MULTIPLY[] = "mul ";
+    uint8_t DIVIDE[] = "div ";
+    uint8_t AND[] = "and ";
+    uint8_t XOR[] = "xor ";
+    uint8_t OR[] = "or ";
 
-    char REGISTERS[4][4] =
+    uint8_t REGISTERS[4][4] =
     {
         "eax",
         "ebx",
@@ -104,14 +106,14 @@ uint8_t createInstruction(uint8_t Instruction, uint8_t* VarA, uint8_t* VarB)
         "edx"
     };
 
-    char START[] = ", ";
-    char END[] = "\n\0";
+    uint8_t START[] = ", ";
+    uint8_t END[] = "\n\0";
 
-    char VAREND[] = "]\n\0";
-    char VARSTART[] = ", [";
+    uint8_t VAREND[] = "]\n\0";
+    uint8_t VARSTART[] = ", [";
 
     //Checking all Operators.
-    switch(Instruction)
+    switch (Instruction)
     {
         case '+':
         {
@@ -128,8 +130,8 @@ uint8_t createInstruction(uint8_t Instruction, uint8_t* VarA, uint8_t* VarB)
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
 
-            char NEWVARSTART[] = "[";
-            char NEWVAREND[] = "], ";
+            uint8_t NEWVARSTART[] = "[";
+            uint8_t NEWVAREND[] = "], ";
 
             String = stringifyInstruction(6, MOVE, NEWVARSTART, VarA, NEWVAREND, REGISTERS[0], END);
             fwrite(String, 1, strlen(String), OutputFile);
@@ -152,8 +154,8 @@ uint8_t createInstruction(uint8_t Instruction, uint8_t* VarA, uint8_t* VarB)
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
 
-            char NEWVARSTART[] = "[";
-            char NEWVAREND[] = "], ";
+            uint8_t NEWVARSTART[] = "[";
+            uint8_t NEWVAREND[] = "], ";
 
             String = stringifyInstruction(6, MOVE, NEWVARSTART, VarA, NEWVAREND, REGISTERS[0], END);
             fwrite(String, 1, strlen(String), OutputFile);
@@ -176,12 +178,13 @@ uint8_t createInstruction(uint8_t Instruction, uint8_t* VarA, uint8_t* VarB)
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
 
-            char NEWVARSTART[] = "[";
-            char NEWVAREND[] = "], ";
+            uint8_t NEWVARSTART[] = "[";
+            uint8_t NEWVAREND[] = "], ";
 
             String = stringifyInstruction(6, MOVE, NEWVARSTART, VarA, NEWVAREND, REGISTERS[0], END);
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
+            break;
         }
 
         case '^':
@@ -199,12 +202,13 @@ uint8_t createInstruction(uint8_t Instruction, uint8_t* VarA, uint8_t* VarB)
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
 
-            char NEWVARSTART[] = "[";
-            char NEWVAREND[] = "], ";
+            uint8_t NEWVARSTART[] = "[";
+            uint8_t NEWVAREND[] = "], ";
 
             String = stringifyInstruction(6, MOVE, NEWVARSTART, VarA, NEWVAREND, REGISTERS[0], END);
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
+            break;
         }
 
 
@@ -223,18 +227,28 @@ uint8_t createInstruction(uint8_t Instruction, uint8_t* VarA, uint8_t* VarB)
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
 
-            char NEWVARSTART[] = "[";
-            char NEWVAREND[] = "], ";
+            uint8_t NEWVARSTART[] = "[";
+            uint8_t NEWVAREND[] = "], ";
 
             String = stringifyInstruction(6, MOVE, NEWVARSTART, VarA, NEWVAREND, REGISTERS[0], END);
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
+            break;
         }
     }
 
     return 0;
 }
 
+
+//Function related.
+uint8_t createFunction()
+{
+
+    return 0;
+}
+
+//Tokenizer.
 uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
 {
     //Create Initial Token Buffer.
@@ -428,7 +442,7 @@ uint8_t sortNames()
 uint8_t calculateArithmetic()
 {
     //Set up Section .text
-    char Section[] = "\n\n\nSection .text\n\0";
+    uint8_t Section[] = "\n\n\nSection .text\n\0";
     fwrite(Section, 1, strlen(Section), OutputFile);
 
     //Do Initialise First.
@@ -436,9 +450,9 @@ uint8_t calculateArithmetic()
     {
         if (TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 3][0] == '=')
         {
-            char MOV1[] = "mov [";
-            char MOV2[] = "], ";
-            char END[] = "\n\0";
+            uint8_t MOV1[] = "mov [";
+            uint8_t MOV2[] = "], ";
+            uint8_t END[] = "\n\0";
             
             uint8_t* Buffer = stringifyInstruction(5, MOV1, NameBuffer[VARIABLENAME][x].Name, MOV2, TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 4], END);
             fwrite(Buffer, 1, strlen(Buffer), OutputFile);
@@ -446,8 +460,8 @@ uint8_t calculateArithmetic()
         }
         else
         {
-            char MOV1[] = "mov [";
-            char MOV2[] = "], 0\n\0";
+            uint8_t MOV1[] = "mov [";
+            uint8_t MOV2[] = "], 0\n\0";
 
             uint8_t* Buffer = stringifyInstruction(3, MOV1, NameBuffer[VARIABLENAME][x].Name, MOV2);
             fwrite(Buffer, 1, strlen(Buffer), OutputFile);
@@ -488,17 +502,16 @@ uint8_t writeVariables()
         OutputFile = fopen("src.asm", "ab");
     }
 
-    char Section[] = "Section .bss\n\0";
+    uint8_t Section[] = "Section .bss\n\0";
     fwrite(Section, 1, strlen(Section), OutputFile);
-
 
     for(uint32_t x = 0; x < VariableCount; x++)
     {
-        char VARRESB[] = ": resb ";
-        char END[] = "\n\0";
-        uint16_t Length = (uint16_t)strlen(NameBuffer[VARIABLENAME][x].Name) + strlen(VARRESB) + strlen(END) + 1;
+        uint8_t VARRESB[] = ": resb ";
+        uint8_t END[] = "\n\0";
+        size_t Length = (uint16_t)strlen(NameBuffer[VARIABLENAME][x].Name) + strlen(VARRESB) + strlen(END) + 1;
 
-        char* Buffer = malloc(Length + 1);
+        uint8_t* Buffer = malloc(Length + 1);
         if (!Buffer) return 1;
 
         strcpy(Buffer, NameBuffer[VARIABLENAME][x].Name);
@@ -515,7 +528,6 @@ uint8_t writeVariables()
 
         Buffer[Length] = '\0';
         fwrite(Buffer, 1, Length, OutputFile);
-
         free(Buffer);
     }
 
@@ -541,9 +553,7 @@ uint8_t compile(const uint8_t* FileLocation)
     fread(Buffer, 1, Size, File);
 
     if(getTokens(Buffer, Size)) return 3;
-
     if (sortNames()) return 9;
-
     if (writeVariables()) return 10;
     return 0;
 }
