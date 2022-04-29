@@ -5,6 +5,10 @@
 //TODO: Create AST
 //TODO: Design Assembler
 
+
+//What to do:
+//Make String ASM code more modular.
+
 #include "Compile.h"
 
 //Getting Tokens.
@@ -33,6 +37,114 @@ uint32_t VariableCount = 0;
 
 //Output File.
 FILE* OutputFile = 0;
+
+/*
+⣿⡟⠙⠛⠋⠩⠭⣉⡛⢛⠫⠭⠄⠒⠄⠄⠄⠈⠉⠛⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⡇⠄⠄⠄⠄⣠⠖⠋⣀⡤⠄⠒⠄⠄⠄⠄⠄⠄⠄⠄⠄⣈⡭⠭⠄⠄⠄⠉⠙
+⣿⡇⠄⠄⢀⣞⣡⠴⠚⠁⠄⠄⢀⠠⠄⠄⠄⠄⠄⠄⠄⠉⠄⠄⠄⠄⠄⠄⠄⠄
+⣿⡇⠄⡴⠁⡜⣵⢗⢀⠄⢠⡔⠁⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄
+⣿⡇⡜⠄⡜⠄⠄⠄⠉⣠⠋⠠⠄⢀⡄⠄⠄⣠⣆⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⢸
+⣿⠸⠄⡼⠄⠄⠄⠄⢰⠁⠄⠄⠄⠈⣀⣠⣬⣭⣛⠄⠁⠄⡄⠄⠄⠄⠄⠄⢀⣿
+⣏⠄⢀⠁⠄⠄⠄⠄⠇⢀⣠⣴⣶⣿⣿⣿⣿⣿⣿⡇⠄⠄⡇⠄⠄⠄⠄⢀⣾⣿
+⣿⣸⠈⠄⠄⠰⠾⠴⢾⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⢁⣾⢀⠁⠄⠄⠄⢠⢸⣿⣿
+⣿⣿⣆⠄⠆⠄⣦⣶⣦⣌⣿⣿⣿⣿⣷⣋⣀⣈⠙⠛⡛⠌⠄⠄⠄⠄⢸⢸⣿⣿
+⣿⣿⣿⠄⠄⠄⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇⠈⠄⠄⠄⠄⠄⠈⢸⣿⣿
+⣿⣿⣿⠄⠄⠄⠘⣿⣿⣿⡆⢀⣈⣉⢉⣿⣿⣯⣄⡄⠄⠄⠄⠄⠄⠄⠄⠈⣿⣿
+⣿⣿⡟⡜⠄⠄⠄⠄⠙⠿⣿⣧⣽⣍⣾⣿⠿⠛⠁⠄⠄⠄⠄⠄⠄⠄⠄⠃⢿⣿
+⣿⡿⠰⠄⠄⠄⠄⠄⠄⠄⠄⠈⠉⠩⠔⠒⠉⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠐⠘⣿
+⣿⠃⠃⠄⠄⠄⠄⠄⠄⣀⢀⠄⠄⡀⡀⢀⣤⣴⣤⣤⣀⣀⠄⠄⠄⠄⠄⠄⠁⢹
+*/
+
+uint8_t* stringifyInstruction(uint8_t StringCount, ...)
+{
+    //Get List.
+    va_list List;
+    va_start(List, StringCount);
+
+    uint32_t Length = 0;
+
+    uint8_t** Buffer = malloc(sizeof(uint8_t*) * StringCount);
+    if (!Buffer) return NULL;
+
+    for (uint8_t x = 0; x < StringCount; x++)
+    {
+        Buffer[x] = va_arg(List, uint8_t*);
+        Length += strlen(Buffer[x]);
+    }
+
+    //Setting up new String.
+    uint8_t* String = malloc(Length + 1);
+    if (!String) return NULL;
+
+    strcpy(String, Buffer[0]);
+    
+    for (uint8_t x = 1; x < StringCount; x++)
+        strcat(String, Buffer[x]);
+    
+    free(Buffer);
+    return String;
+}
+
+uint8_t createInstruction(uint8_t Instruction, uint8_t* VarA, uint8_t* VarB)
+{
+    //Strings to apply Instructions.
+    char MOVE[] = "mov ";
+    char ADDITION[] = "add ";
+    char SUBTRACT[] = "sub ";
+    char MULTIPLY[] = "mul ";
+    char DIVIDE[] = "div ";
+
+    char REGISTERS[4][4] =
+    {
+        "eax",
+        "ebx",
+        "ecx",
+        "edx"
+    };
+
+    char START[] = ", ";
+    char END[] = "\n\0";
+
+    char VAREND[] = "]\n\0";
+    char VARSTART[] = ", [";
+
+    //Checking all Operators.
+    switch(Instruction)
+    {
+        case '+':
+        {
+            uint8_t* String = stringifyInstruction(5, MOVE, REGISTERS[0], VARSTART, VarA, VAREND);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+            String = stringifyInstruction(5, MOVE, REGISTERS[3], VARSTART, VarB, VAREND);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+
+            String = stringifyInstruction(5, ADDITION, REGISTERS[0], START, REGISTERS[3], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+            char NEWVARSTART[] = "[";
+            char NEWVAREND[] = "], ";
+
+            String = stringifyInstruction(5, MOVE, NEWVARSTART, VarA, NEWVAREND, REGISTERS[0]);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+            break;
+        }
+
+        case '-':
+        {
+        
+            break;
+        }
+    }
+
+    return 0;
+}
+
 
 uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
 {
@@ -233,9 +345,9 @@ uint8_t calculateArithmetic()
             char MOV1[] = "mov [";
             char MOV2[] = "], ";
             char END[] = "\n\0";
-            uint16_t Length = strlen(MOV1) + strlen(MOV2) + strlen(END);
-            Length += strlen(NameBuffer[VARIABLENAME][x].Name);
-            Length += strlen(TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 4]);
+            uint16_t Length = (uint16_t)strlen(MOV1) + strlen(MOV2) + strlen(END);
+            Length += (uint16_t)strlen(NameBuffer[VARIABLENAME][x].Name);
+            Length += (uint16_t)strlen(TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 4]);
 
             uint8_t* Buffer = malloc(Length + 1);
             if (!Buffer) return 1;
@@ -255,8 +367,8 @@ uint8_t calculateArithmetic()
             char MOV1[] = "mov [";
             char MOV2[] = "], 0\n\0";
 
-            uint16_t Length = strlen(MOV1) + strlen(MOV2);
-            Length += strlen(NameBuffer[VARIABLENAME][x].Name);
+            uint16_t Length = (uint16_t)strlen(MOV1) + strlen(MOV2);
+            Length += (uint16_t)strlen(NameBuffer[VARIABLENAME][x].Name);
 
             uint8_t* Buffer = malloc(Length + 1);
             if (!Buffer) return 1;
@@ -269,6 +381,13 @@ uint8_t calculateArithmetic()
             fwrite(Buffer, 1, Length, OutputFile);
             free(Buffer);
         }
+    }
+
+    //Scan Tokens and create Arithmetic Operations.
+    for(uint32_t x = 0; x < TokenCount; x++)
+    {
+        if (TokenBuffer[x][0] == '+')
+            createInstruction('+', TokenBuffer[x - 1], TokenBuffer[x + 1]);
     }
 
     return 0;
@@ -297,7 +416,7 @@ uint8_t writeVariables()
     {
         char VARRESB[] = ": resb ";
         char END[] = "\n\0";
-        uint16_t Length = strlen(NameBuffer[VARIABLENAME][x].Name) + strlen(VARRESB) + strlen(END) + 1;
+        uint16_t Length = (uint16_t)strlen(NameBuffer[VARIABLENAME][x].Name) + strlen(VARRESB) + strlen(END) + 1;
 
         char* Buffer = malloc(Length + 1);
         if (!Buffer) return 1;
