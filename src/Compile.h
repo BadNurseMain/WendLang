@@ -6,7 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 #endif
 
-char compile(const uint8_t* FileLocation);
+uint8_t compile(const uint8_t* FileLocation);
