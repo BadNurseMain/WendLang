@@ -89,6 +89,11 @@ uint8_t* stringifyInstruction(uint8_t StringCount, ...)
 
 uint8_t createLocalInstruction(uint8_t Instruction, uint32_t StackOffset, uint8_t* Value)
 {
+    //Convert StackOffset to String.
+    uint8_t STACKOFFSET[12];
+    sprintf(STACKOFFSET, "%d", StackOffset);
+
+
     //Strings to apply Instructions.
     uint8_t MOVE[] = "mov ";
     uint8_t ADDITION[] = "add ";
@@ -102,6 +107,9 @@ uint8_t createLocalInstruction(uint8_t Instruction, uint32_t StackOffset, uint8_
     //Stack Specific.
     uint8_t PUSH[] = "push ";
     uint8_t POP[] = "pop ";
+    uint8_t PLUS[] = " + ";
+    uint8_t OPENBRACKET[] = "[\0";
+    uint8_t CLOSEDBRACKET[] = "]\0";
 
     uint8_t NEWVARSTART[] = "[";
     uint8_t NEWVAREND[] = "], ";
@@ -121,11 +129,13 @@ uint8_t createLocalInstruction(uint8_t Instruction, uint32_t StackOffset, uint8_
     uint8_t VAREND[] = "]\n\0";
     uint8_t VARSTART[] = ", [";
 
-    switch(Instruction)
+    uint8_t* String = 0;
+
+    switch (Instruction)
     {
         case 'P':
         {
-            uint8_t* String = stringifyInstruction(5, MOVE, REGISTERS[0], START, Value, END);
+            String = stringifyInstruction(5, MOVE, REGISTERS[0], START, Value, END);
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
 
@@ -137,13 +147,40 @@ uint8_t createLocalInstruction(uint8_t Instruction, uint32_t StackOffset, uint8_
 
         case 'p':
         {
-            uint8_t* String = stringifyInstruction(3, POP, REGISTERS[0], END);
+            String = stringifyInstruction(3, POP, REGISTERS[0], END);
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
             break;
         }
 
+        case '+':
+        {
+            String = stringifyInstruction(7, MOVE, REGISTERS[0], VARSTART, REGISTERS[4], PLUS, STACKOFFSET, VAREND);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+            
+            String = stringifyInstruction(5, MOVE, REGISTERS[3], START, Value, END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
 
+            String = stringifyInstruction(5, ADDITION, REGISTERS[0], START, REGISTERS[3], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+            break;
+        }
+
+        case '=':
+        {
+            String = stringifyInstruction(9, MOVE, OPENBRACKET, REGISTERS[4], PLUS, STACKOFFSET, CLOSEDBRACKET, START, Value, END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+            break;
+        }
+
+        case '-':
+        {
+            
+        }
     }
     return 0;
 }
@@ -177,10 +214,7 @@ uint8_t createInstruction(uint8_t Instruction, uint8_t* VarA, uint8_t* VarB)
     uint8_t VAREND[] = "]\n\0";
     uint8_t VARSTART[] = ", [";
 
-    uint8_t NEWVARSTART[] = "[";
-    uint8_t NEWVAREND[] = "], ";
-
-    if(Instruction == '*' || Instruction == '/');
+    if (Instruction == '*' || Instruction == '/');
 
 
     uint8_t* String = stringifyInstruction(5, MOVE, REGISTERS[0], VARSTART, VarA, VAREND);
@@ -240,21 +274,29 @@ uint8_t createInstruction(uint8_t Instruction, uint8_t* VarA, uint8_t* VarB)
 uint8_t createFunction()
 {
     //Set up Section .text
-    uint8_t Section[] = "\n\n\nSection .text\n\0";
+    uint8_t Section[] = "\n\n\nSection .text\n\n\0";
     fwrite(Section, 1, strlen(Section), OutputFile);
 
-    for(uint8_t x = 0; x < FunctionCount; x++)
+    for (uint8_t x = 0; x < FunctionCount; x++)
     {
         //Variable for the Location of the Function.
         uint32_t Location = NameBuffer[FUNCTIONNAME][x].Location;
 
-        if(TokenBuffer[Location + 2][0] == ')')
+        //Writing the Name of the Buffer and translating it to a function in asm.
+        uint8_t* String = stringifyInstruction(2, NameBuffer[FUNCTIONNAME][x].Name, ":\n\0");
+        fwrite(String, 1, strlen(String), OutputFile);
+        free(String);
+
+        if (TokenBuffer[Location + 2][0] == ')')
         {
-            uint32_t FunctionStart = Location + 3;
+            uint32_t FunctionStart = Location + 4;
 
             //Scope of Function.
             uint8_t Scope = 1;
             uint8_t ScopeOffset = 1;
+
+            //Stack of Function.
+            uint8_t Stack = 4;
 
             //Storing Local Variables.
             typedef struct
@@ -266,43 +308,63 @@ uint8_t createFunction()
 
             //Creating Buffer to Store Local Variables.
             LocalNameStruct* LocalVar = malloc(sizeof(LocalNameStruct) * 100);
-            if(!LocalVar) return 1;
+            if (!LocalVar) return 1;
 
             uint32_t LocalVarCount = 0;
 
             //Looping over all of the Tokens in the Function.
-            for (uint8_t y = FunctionStart; Scope; x++)
+            for (uint8_t y = FunctionStart; Scope; y++)
             {
                 //Checking Scope.
                 if (TokenBuffer[y][0] == '}')
                 {
                     --Scope;
 
-                    for(uint8_t z = LocalVarCount; z > 0; z--)
-                        if(LocalVar[z].Scope[Scope])
+                    for (uint8_t z = LocalVarCount; z > 0; z--)
+                        if (LocalVar[z].Scope[Scope])
                         {
-                            ScopeOffset = LocalVar[z].Scope[Scope] + 1;                        
+                            ScopeOffset = LocalVar[z].Scope[Scope] + 1;
                             break;
                         }
 
                     continue;
                 }
-                else if(TokenBuffer[y][0] == '{')
+                else if (TokenBuffer[y][0] == '{')
                 {
                     ++Scope;
                     continue;
                 }
 
-                if(TokenBuffer[y][0] == ':')
+                if (TokenBuffer[y][0] == ':')
                 {
-                    //Create a Temporary Info until its passed to LocalVar.
-                    uint8_t TempScope[16] = LocalVar[LocalVarCount - 1].Scope;
+                    //Create Temporary Info until its passed to LocalVar.
+                    //uint8_t TempScope[16] = LocalVar[LocalVarCount - 1].Scope;
                     LocalNameStruct TempStruct = { 0 };
                     TempStruct.Name = TokenBuffer[y - 1];
-
+                    
+                    createLocalInstruction('P', Stack, TokenBuffer[y + 3]);
+                    Stack += 4;
                     continue;
-                }                
+                }
+
+                if(TokenBuffer[y][0] == '=' && TokenBuffer[y - 2][0] != ':')
+                {
+                    createLocalInstruction('=', Stack, TokenBuffer[y + 1]);
+                    continue;
+                }
+
             }
+
+            for(uint32_t y = Stack / 4; y > 1; y--)
+            {
+                createLocalInstruction('p', 0, 0);
+            }
+            
+            free(LocalVar);
+            
+            String = stringifyInstruction(1, "ret\n\n");
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
         }
     }
     return 0;
@@ -311,20 +373,17 @@ uint8_t createFunction()
 //Tokenizer.
 uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
 {
-    //Test
-    volatile uint8_t Character = 0;
-    
     uint8_t Scope = 0;
 
     //Create Initial Token Buffer.
     TokenBuffer = malloc(sizeof(uint8_t*) * 1000);
-    if(!TokenBuffer) return 1;
+    if (!TokenBuffer) return 1;
 
-    for(uint32_t x = 0; x < Size;)
+    for (uint32_t x = 0; x < Size;)
     {
         uint32_t y = x;
 
-        LoopStart:
+    LoopStart:
 
         if (Buffer[y] == ' ')
         {
@@ -335,38 +394,38 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
         //Looping over non whitespace.
         while (Buffer[y] != ' ' && y < Size)
         {
-            if (Buffer[y] == '\r' || Buffer[y] == '\n') break;
+            if (Buffer[y] == '\r' || Buffer[y] == '\n' || Buffer[y] == '\t') break;
 
             //Searching for Syntax.
-            switch(Buffer[y])
+            switch (Buffer[y])
             {
                 //Priority.
-                case '(': goto Syntax;
-                case ')': goto Syntax;
+            case '(': goto Syntax;
+            case ')': goto Syntax;
 
-                case '{': goto Syntax;
-                case '}': goto Syntax;
+            case '{': goto Syntax;
+            case '}': goto Syntax;
 
                 //Operators.
-                case '+': goto Syntax;
-                case '-': goto Syntax;
-                case '/': goto Syntax;
-                case '*': goto Syntax;
+            case '+': goto Syntax;
+            case '-': goto Syntax;
+            case '/': goto Syntax;
+            case '*': goto Syntax;
 
                 //Bitwise
-                case '&': goto Syntax;
-                case '^': goto Syntax;
-                case '|': goto Syntax;
+            case '&': goto Syntax;
+            case '^': goto Syntax;
+            case '|': goto Syntax;
 
                 //Declaration.
-                case ';': goto Syntax;
+            case ';': goto Syntax;
             }
             y++;
             continue;
 
         Syntax:
             //Get Token Before Syntax.
-            if (Buffer[y - 1] == ' ' || Buffer[y - 1] == '(' || Buffer[y - 1] == '{') goto SyntaxStore;
+            if (Buffer[y - 1] == ' ' || Buffer[y - 1] == '(' || Buffer[y - 1] == '{' || Buffer[y - 1] == '\r' || Buffer[y - 1] == '\n' || Buffer[y - 1] == '\t') goto SyntaxStore;
 
             TokenBuffer[TokenCount] = malloc(y - x);
             if (!TokenBuffer[TokenCount]) return 2;
@@ -391,7 +450,7 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
             goto LoopStart;
         }
 
-        if (Buffer[y] == '\n' || Buffer[y] == '\r')
+        if (Buffer[y] == '\n' || Buffer[y] == '\r' || Buffer[y] == '\t')
         {
             x = ++y;
             continue;
@@ -401,7 +460,7 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
         TokenBuffer[TokenCount] = malloc(y - x + 1);
         if (!TokenBuffer[TokenCount]) return 2;
 
-        for(uint32_t z = 0; z < y - x + 1; z++)
+        for (uint32_t z = 0; z < y - x + 1; z++)
             TokenBuffer[TokenCount][z] = Buffer[z + x];
 
         TokenBuffer[TokenCount][y - x] = '\0';
@@ -416,10 +475,9 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
     TokenBuffer[TokenCount] = 0;
 
     for (uint32_t x = 0; x < TokenCount; x++)
-        printf("Name: %d Count: %d\n", TokenBuffer[x][0], x);
+        printf("Name: %s Count: %d\n", TokenBuffer[x], x);
 
     printf("\n\n\nTotal Count: %d\n", TokenCount);
-
     return 0;
 }
 
@@ -437,13 +495,13 @@ uint8_t sortNames()
     //Declaring Scope.
     uint8_t Scope = 0;
 
-    for(uint8_t x = 0; x < TokenCount; x++)
+    for (uint8_t x = 0; x < TokenCount; x++)
     {
         if (TokenBuffer[x][0] == '{') ++Scope;
         else if (TokenBuffer[x][0] == '}') --Scope;
 
         //Check if it is a function.
-        if(!strcmp(TokenBuffer[x], "fn\0"))
+        if (!strcmp(TokenBuffer[x], "fn\0"))
         {
             //Ensure valid name.
             uint8_t Char = TokenBuffer[x + 1][0];
@@ -451,7 +509,7 @@ uint8_t sortNames()
             if (Char >= ':' && Char <= '@') return INVALID_NAME_CHAR;
             if (Char == '(' || Char == ')' || Char == '{' || Char == '}') return INVALID_NAME_CHAR;
 
-            NameStruct Function = { TokenBuffer[x + 1], x + 1};
+            NameStruct Function = { TokenBuffer[x + 1], x + 1 };
 
             if (!FunctionCount) goto AddFunction;
             //Make sure function name doesn't exist elsewhere.
@@ -467,7 +525,7 @@ uint8_t sortNames()
         if (Scope) continue;
 
         //Variable Declaration.
-        if(TokenBuffer[x][0] == ':')
+        if (TokenBuffer[x][0] == ':')
         {
             uint8_t DataTypes[3][3] =
             {
@@ -491,7 +549,7 @@ uint8_t sortNames()
 
             if (!Check) return 4;
 
-            NameStruct VariableName = { TokenBuffer[x - 1], x -1};
+            NameStruct VariableName = { TokenBuffer[x - 1], x - 1 };
             if (!VariableCount) goto AddVariable;
 
             //Make sure Variable Name doesn't exist elsewhere.
@@ -569,7 +627,7 @@ uint8_t writeGlobalVariables()
     uint8_t Section[] = "Section .bss\n\0";
     fwrite(Section, 1, strlen(Section), OutputFile);
 
-    for(uint32_t x = 0; x < VariableCount; x++)
+    for (uint32_t x = 0; x < VariableCount; x++)
     {
         uint8_t VARRESB[] = ": resb ";
         uint8_t END[] = "\n\0";
@@ -605,7 +663,7 @@ uint8_t writeGlobalVariables()
 uint8_t compile(const uint8_t* FileLocation)
 {
     FILE* File = fopen(FileLocation, "rb");
-    if(!File) return 1;
+    if (!File) return 1;
 
     //Get Total Size of File.
     fseek(File, 0, SEEK_END);
@@ -614,11 +672,11 @@ uint8_t compile(const uint8_t* FileLocation)
 
     //Create Buffer to hold file.
     uint8_t* Buffer = malloc(Size);
-    if(!Buffer) return 2;
+    if (!Buffer) return 2;
 
     fread(Buffer, 1, Size, File);
 
-    if(getTokens(Buffer, Size)) return 3;
+    if (getTokens(Buffer, Size)) return 3;
     if (sortNames()) return 9;
     if (writeGlobalVariables()) return 10;
     return 0;
