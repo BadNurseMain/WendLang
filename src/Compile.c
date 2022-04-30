@@ -186,7 +186,7 @@ uint8_t createLocalInstruction(uint8_t Instruction, uint32_t StackOffset, uint8_
 }
 
 //Function related.
-uint8_t createFunction()
+uint8_t initFunction()
 {
     //Set up Section .text
     uint8_t Section[] = "\n\n\nSection .text\n\n\0";
@@ -487,43 +487,6 @@ uint8_t sortNames()
     return 0;
 }
 
-uint8_t initInstruction()
-{
-    //Set up Section .text
-    uint8_t Section[] = "\n\n\nSection .text\n\0";
-    fwrite(Section, 1, strlen(Section), OutputFile);
-
-    //Do Initialise First.
-    for (uint32_t x = 0; x < VariableCount; x++)
-    {
-        if (TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 3][0] == '=')
-        {
-            uint8_t MOV1[] = "mov [";
-            uint8_t MOV2[] = "], ";
-            uint8_t END[] = "\n\0";
-
-            uint8_t* Buffer = stringifyInstruction(5, MOV1, NameBuffer[VARIABLENAME][x].Name, MOV2, TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 4], END);
-            fwrite(Buffer, 1, strlen(Buffer), OutputFile);
-            free(Buffer);
-        }
-        else
-        {
-            uint8_t MOV1[] = "mov [";
-            uint8_t MOV2[] = "], 0\n\0";
-
-            uint8_t* Buffer = stringifyInstruction(3, MOV1, NameBuffer[VARIABLENAME][x].Name, MOV2);
-            fwrite(Buffer, 1, strlen(Buffer), OutputFile);
-            free(Buffer);
-        }
-    }
-
-    //Scan Tokens and create Arithmetic Operations.
-    //for(uint32_t x = 0; x < TokenCount; x++)
-    //    createInstruction(TokenBuffer[x][0], TokenBuffer[x - 1], TokenBuffer[x + 1]);
-
-    return 0;
-}
-
 //This sets up Section .BSS
 uint8_t initVariables()
 {
@@ -568,7 +531,7 @@ uint8_t initVariables()
         free(Buffer);
     }
 
-    createFunction();
+    initFunction();
 
     //calculateArithmetic();
     fclose(OutputFile);
