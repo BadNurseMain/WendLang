@@ -487,7 +487,7 @@ uint8_t sortNames()
     return 0;
 }
 
-uint8_t calculateArithmetic()
+uint8_t initInstruction()
 {
     //Set up Section .text
     uint8_t Section[] = "\n\n\nSection .text\n\0";
@@ -525,7 +525,7 @@ uint8_t calculateArithmetic()
 }
 
 //This sets up Section .BSS
-uint8_t writeGlobalVariables()
+uint8_t initVariables()
 {
     if (!OutputFile)
     {
@@ -593,6 +593,6 @@ uint8_t compile(const uint8_t* FileLocation)
 
     if (getTokens(Buffer, Size)) return 3;
     if (sortNames()) return 9;
-    if (writeGlobalVariables()) return 10;
+    if (initVariables()) return 10;
     return 0;
 }
