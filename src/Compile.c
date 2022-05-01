@@ -26,6 +26,7 @@
 #define INVALID_NAME_CHAR (uint8_t)2
 #define NAME_ELSEWHERE (uint8_t)3
 #define BUFFER_INIT_ERROR (uint8_t)4
+#define NO_VALID_VARIABLE (uint8_t)5
 
 //Getting Tokens.
 uint8_t** TokenBuffer = 0;
@@ -94,12 +95,63 @@ uint8_t* stringifyInstruction(uint8_t StringCount, ...)
     return String;
 }
 
-uint8_t createLocalInstruction(uint8_t Instruction, uint32_t StackOffset, uint8_t* Value)
+uint8_t ModifyStack(uint8_t Instruction, uint8_t* Value)
 {
-    //Convert StackOffset to String.
-    uint8_t STACKOFFSET[12];
-    sprintf(STACKOFFSET, "%d", StackOffset);
+    uint8_t MOVE[] = "mov ";
+    uint8_t PUSH[] = "push ";
+    uint8_t POP[] = "pop ";
 
+    uint8_t REGISTERS[5][4] =
+    {
+        "eax",
+        "ebx",
+        "ecx",
+        "edx",
+        "esp"
+    };
+
+    uint8_t START[] = ", ";
+    uint8_t END[] = "\n\0";
+
+    uint8_t* String = 0;
+
+    switch (Instruction)
+    {
+        case 'P':
+        {
+            String = stringifyInstruction(5, MOVE, REGISTERS[0], START, Value, END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+            String = stringifyInstruction(3, PUSH, REGISTERS[0], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+            break;
+        }
+
+        case 'p':
+        {
+            String = stringifyInstruction(3, POP, REGISTERS[0], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+            break;
+        }
+    }
+    return 0;
+}
+
+uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount)
+{
+    //Storing Local Variables.
+    typedef struct
+    {
+        uint8_t* Name;
+        uint8_t Scope[16];
+        uint8_t ScopeCount;
+        uint32_t StackOffset;
+    } LocalNameStruct;
+
+    LocalNameStruct* LocalVar = Names;
 
     //Strings to apply Instructions.
     uint8_t MOVE[] = "mov ";
@@ -138,61 +190,73 @@ uint8_t createLocalInstruction(uint8_t Instruction, uint32_t StackOffset, uint8_
 
     uint8_t* String = 0;
 
-    //Going by Instruction Case.
-    switch (Instruction)
+    for(uint8_t x = StartLocation, RegisterCount = 0; TokenBuffer[x + 1][0] != ';'; x++)
     {
-        case 'P':
-        {
-            String = stringifyInstruction(5, MOVE, REGISTERS[0], START, Value, END);
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
+        printf("%s \n", TokenBuffer[x + 1]);
 
-            String = stringifyInstruction(3, PUSH, REGISTERS[0], END);
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
-            break;
+        //Is a Variable.
+        if (TokenBuffer[x + 1][0] < '0' || TokenBuffer[x + 1][0] > '9')
+        {
+            if (TokenBuffer[x + 1][0] <= 'A' || TokenBuffer[x + 1][0] >= 'z') return INVALID_NAME_CHAR;
+            if (TokenBuffer[x + 1][0] >= ':' && TokenBuffer[x + 1][0] <= '@') return INVALID_NAME_CHAR;
+            if (TokenBuffer[x + 1][0] == '(' || TokenBuffer[x + 1][0] == ')' || TokenBuffer[x + 1][0] == '{' || TokenBuffer[x + 1][0] == '}') return INVALID_NAME_CHAR;
+
+            //Finding Variable.
+            for (uint32_t y = 0; y < VarCount; y++)
+                if (!strcmp(TokenBuffer[x + 1], LocalVar[y].Name))
+                {
+                    //Stringify Stack Offset.
+                    uint8_t StackOffset[12] = { 0 };
+                    sprintf(StackOffset, "%d", LocalVar[y].StackOffset);
+
+                    //Write to ASM File.
+                    String = stringifyInstruction(7, MOVE, REGISTERS[RegisterCount], VARSTART, REGISTERS[4], PLUS, StackOffset, VAREND);
+                    fwrite(String, 1, strlen(String), OutputFile);
+                    free(String);
+                }
+            x++;
+            if (TokenBuffer[x + 1][0] == ';')
+            {
+                //Finding Variable.
+                for (uint32_t y = 0; y < VarCount; y++)
+                    if (!strcmp(TokenBuffer[StartLocation - 1], LocalVar[y].Name))
+                    {
+                        //Stringify Stack Offset.
+                        uint8_t StackOffset[12] = { 0 };
+                        sprintf(StackOffset, "%d", LocalVar[y].StackOffset);
+
+                        //Write to ASM File.
+                        String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[4], PLUS, StackOffset, NEWVAREND, REGISTERS[RegisterCount], END);
+                        fwrite(String, 1, strlen(String), OutputFile);
+                        free(String);
+                        return 0;
+                    }
+
+                return 1;
+            }
         }
-
-        case 'p':
+        else 
         {
-            String = stringifyInstruction(3, POP, REGISTERS[0], END);
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
-            break;
-        }
-
-        case '+':
-        {
-            String = stringifyInstruction(7, MOVE, REGISTERS[0], VARSTART, REGISTERS[4], PLUS, STACKOFFSET, VAREND);
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
-            
-            String = stringifyInstruction(5, MOVE, REGISTERS[3], START, Value, END);
+            String = stringifyInstruction(5, MOVE, REGISTERS[RegisterCount], START, TokenBuffer[x + 1], END);
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
 
-            String = stringifyInstruction(5, ADDITION, REGISTERS[0], START, REGISTERS[3], END);
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
+            x++;
 
-            String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[4], PLUS, STACKOFFSET, NEWVAREND, REGISTERS[0], END);
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
-            break;
-        }
+            //Finding Variable.
+            for (uint32_t y = 0; y < VarCount; y++)
+                if (!strcmp(TokenBuffer[StartLocation - 1], LocalVar[y].Name))
+                {
+                    //Stringify Stack Offset.
+                    uint8_t StackOffset[12] = { 0 };
+                    sprintf(StackOffset, "%d", LocalVar[y].StackOffset);
 
-        case '=':
-        {
-            String = stringifyInstruction(9, MOVE, OPENBRACKET, REGISTERS[4], PLUS, STACKOFFSET, CLOSEDBRACKET, START, Value, END);
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
-            break;
-        }
-
-        case '-':
-        {
-
-            break;
+                    //Write to ASM File.
+                    String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[4], PLUS, StackOffset, NEWVAREND, REGISTERS[RegisterCount], END);
+                    fwrite(String, 1, strlen(String), OutputFile);
+                    free(String);
+                    return 0;
+                }
         }
     }
 
@@ -271,7 +335,7 @@ uint8_t initFunctions()
                     TempStruct.ScopeCount = Scope;
 
                     //Calculate Scope of Previous Variables.
-                    if(Scope == 1)
+                    if (Scope == 1)
                     {
                         TempStruct.Scope[0] = x + 1;
                         goto initFunctionCreateInstruction;
@@ -282,31 +346,31 @@ uint8_t initFunctions()
                             TempStruct.Scope[z] = LocalVar[LocalVarCount - 1].Scope[z];
 
 
-                    initFunctionCreateInstruction:
-                    createLocalInstruction('P', TempStruct.StackOffset - Stack, TokenBuffer[y + 3]);
+                initFunctionCreateInstruction:
+                    ModifyStack('P', TokenBuffer[y + 3]);
                     Stack += 4;
-                    
+
                     LocalVar[LocalVarCount++] = TempStruct;
                     continue;
                 }
 
-                if(TokenBuffer[y][0] == '=' && TokenBuffer[y - 2][0] != ':')
+                if (TokenBuffer[y][0] == '=' && TokenBuffer[y - 2][0] != ':')
                 {
-                    for(uint32_t z = 0; z < LocalVarCount; z++)
-                        if(!strcmp(TokenBuffer[y - 1], LocalVar[z].Name))
-                            createLocalInstruction('=', LocalVar[z].StackOffset, TokenBuffer[y + 1]);
+                    for (uint32_t z = 0; z < LocalVarCount; z++)
+                        if (!strcmp(TokenBuffer[y - 1], LocalVar[z].Name))
+                            performArithmetic(y, LocalVar, LocalVarCount);
                     continue;
                 }
 
             }
-            
+
             //Popping off all variables on the stack.
-            for(uint32_t y = Stack / 4; y > 1; y--)
-                createLocalInstruction('p', 0, 0);
-            
+            for (uint32_t y = Stack / 4; y > 1; y--)
+                ModifyStack('p', 0);
+
             //Clearing LocalVar Buffer.
             free(LocalVar);
-            
+
             String = stringifyInstruction(1, "ret\n\n");
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
@@ -391,7 +455,7 @@ uint8_t initVariables()
 
     //Calculating Logic of Functions.
     if (initFunctions()) return 1;
-    
+
     fclose(OutputFile);
     return 0;
 }
@@ -459,8 +523,7 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
             for (uint32_t z = 0; z < y - x; z++)
                 TokenBuffer[TokenCount][z] = Buffer[z + x];
 
-            TokenBuffer[TokenCount][y - x] = '\0';
-            TokenCount++;
+            TokenBuffer[TokenCount++][y - x] = '\0';
 
         SyntaxStore:
             //Storing Syntax Token.
@@ -468,9 +531,7 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
             if (!TokenBuffer[TokenCount]) return BUFFER_INIT_ERROR;
 
             TokenBuffer[TokenCount][0] = Buffer[y];
-            TokenBuffer[TokenCount][1] = '\0';
-            TokenCount++;
-
+            TokenBuffer[TokenCount++][1] = '\0';
             x = ++y;
 
             goto LoopStart;
@@ -497,7 +558,6 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
     }
 
     if (Scope) return 1;
-
     TokenBuffer[TokenCount] = 0;
 
     for (uint32_t x = 0; x < TokenCount; x++)
