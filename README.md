@@ -3,8 +3,8 @@ Language focused on data sizes as opposed to different data types.
 
 ## Prerequisites
 ```
-  - GCC.
-  - NASM.
+  - GCC (To Build Project).
+  - NASM (To assemble result of Compilation).
 ```
 
 ## How to use
