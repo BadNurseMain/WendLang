@@ -4,7 +4,7 @@ Language focused on data sizes as opposed to different data types.
 ## Prerequisites
 ```
   - GCC (To Build Project).
-  - NASM (To assemble result of Compilation).
+  - NASM (To Assemble Result of Compilation).
 ```
 
 ## How to use
