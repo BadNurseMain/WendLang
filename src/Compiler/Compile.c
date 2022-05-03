@@ -192,8 +192,6 @@ uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount
 
     for(uint8_t x = StartLocation, RegisterCount = 0; TokenBuffer[x + 1][0] != ';'; x++)
     {
-        printf("%s \n", TokenBuffer[x + 1]);
-
         //Is a Variable.
         if (TokenBuffer[x + 1][0] < '0' || TokenBuffer[x + 1][0] > '9')
         {
@@ -235,7 +233,7 @@ uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount
                 return 1;
             }
         }
-        else 
+        else
         {
             String = stringifyInstruction(5, MOVE, REGISTERS[RegisterCount], START, TokenBuffer[x + 1], END);
             fwrite(String, 1, strlen(String), OutputFile);
@@ -481,6 +479,12 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
             continue;
         }
 
+        if(Buffer[y] == '#')
+        {
+            while(Buffer[y] != '\n') x++;
+            continue;
+        }
+
         //Looping over non whitespace.
         while (Buffer[y] != ' ' && y < Size)
         {
@@ -563,7 +567,7 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
     for (uint32_t x = 0; x < TokenCount; x++)
         printf("Name: %s Count: %d\n", TokenBuffer[x], x);
 
-    printf("\n\n\nTotal Count: %d\n", TokenCount);
+    printf("\n\n\nTotal Count: %d\n", TokenCount - 1);
     return 0;
 }
 
@@ -649,16 +653,10 @@ uint8_t sortNames()
         }
     }
 
-    for (uint32_t x = 0; x < FunctionCount; x++)
-        printf("Function Name: %s Location: %d\n", NameBuffer[FUNCTIONNAME][x].Name, NameBuffer[FUNCTIONNAME][x].Location);
-
-    for (uint32_t x = 0; x < VariableCount; x++)
-        printf("Variable Name: %s Location: %d\n", NameBuffer[VARIABLENAME][x].Name, NameBuffer[VARIABLENAME][x].Location);
-
     return 0;
 }
 
-uint8_t compile(const uint8_t* FileLocation)
+uint8_t compile(const uint8_t* FileLocation, const uint8_t* OutputLocation)
 {
     FILE* File = fopen(FileLocation, "rb");
     if (!File) return 1;
@@ -673,6 +671,19 @@ uint8_t compile(const uint8_t* FileLocation)
     if (!Buffer) return BUFFER_INIT_ERROR;
 
     fread(Buffer, 1, Size, File);
+
+    if(OutputLocation)
+    {
+        OutputFile = fopen(OutputLocation, "rb");
+        if(OutputFile)
+        {
+            fclose(OutputFile);
+            remove(OutputLocation);
+        }        
+
+        OutputFile = fopen(OutputLocation, "ab");
+        if(!OutputFile) return 1;
+    }
 
     if (getTokens(Buffer, Size)) return 3;
     if (sortNames()) return 9;

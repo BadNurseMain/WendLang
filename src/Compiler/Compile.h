@@ -10,4 +10,4 @@
 
 #endif
 
-uint8_t compile(const uint8_t* FileLocation);
+uint8_t compile(const uint8_t* FileLocation, const uint8_t* OutputLocation);
