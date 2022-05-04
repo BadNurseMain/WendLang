@@ -190,73 +190,145 @@ uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount
 
     uint8_t* String = 0;
 
-    for(uint8_t x = StartLocation, RegisterCount = 0; TokenBuffer[x + 1][0] != ';'; x++)
-    {
-        //Is a Variable.
-        if (TokenBuffer[x + 1][0] < '0' || TokenBuffer[x + 1][0] > '9')
-        {
-            if (TokenBuffer[x + 1][0] <= 'A' || TokenBuffer[x + 1][0] >= 'z') return INVALID_NAME_CHAR;
-            if (TokenBuffer[x + 1][0] >= ':' && TokenBuffer[x + 1][0] <= '@') return INVALID_NAME_CHAR;
-            if (TokenBuffer[x + 1][0] == '(' || TokenBuffer[x + 1][0] == ')' || TokenBuffer[x + 1][0] == '{' || TokenBuffer[x + 1][0] == '}') return INVALID_NAME_CHAR;
 
-            //Finding Variable.
+    uint32_t PrecedenceCount = 1, PrecedenceMax = 1, MaxCount = StartLocation;
+
+    //Looping to Get Precedence and until the End of the Statement.
+    do
+    {
+        //Getting Increase in Precedence and Checking if its max.
+        if(TokenBuffer[MaxCount] == '(')
+        {
+            if(PrecedenceCount == PrecedenceMax)
+                PrecedenceMax++;
+
+            PrecedenceCount++;
+            MaxCount++;
+            continue;
+        }
+
+        //Decreasing Precedence.
+        if(TokenBuffer[MaxCount] == ')') 
+            PrecedenceCount--;
+
+        MaxCount++;
+    } while(TokenBuffer[MaxCount] != ';');
+
+    MaxCount = StartLocation, PrecedenceCount = 1;
+
+    //Going Through Precedence.
+    do
+    {
+        //Do Calculations at Right Precedence.
+        if(PrecedenceCount == PrecedenceMax)
+        {
+            //Checking for Valid Variables.
+            if (TokenBuffer[MaxCount + 1][0] <= 'A' || TokenBuffer[MaxCount + 1][0] >= 'z') goto IsNotVariableOne;
+        
+            //Checking if its Global Variable.
+            for(uint32_t x = 0; x < VariableCount; x++)
+                if(!strcmp(TokenBuffer[MaxCount + 1], NameBuffer[VARIABLENAME][x].Name))
+                {
+
+
+                }
+
+            //Checking if its Local Variable.
             for (uint32_t y = 0; y < VarCount; y++)
-                if (!strcmp(TokenBuffer[x + 1], LocalVar[y].Name))
+                if (!strcmp(TokenBuffer[MaxCount + 1], LocalVar[y].Name))
                 {
                     //Stringify Stack Offset.
                     uint8_t StackOffset[12] = { 0 };
                     sprintf(StackOffset, "%d", LocalVar[y].StackOffset);
 
                     //Write to ASM File.
-                    String = stringifyInstruction(7, MOVE, REGISTERS[RegisterCount], VARSTART, REGISTERS[4], PLUS, StackOffset, VAREND);
+                    String = stringifyInstruction(7, MOVE, REGISTERS[1], VARSTART, REGISTERS[4], PLUS, StackOffset, VAREND);
                     fwrite(String, 1, strlen(String), OutputFile);
                     free(String);
+
+                    goto ValueTwo;
                 }
-            x++;
-            if (TokenBuffer[x + 1][0] == ';')
-            {
-                //Finding Variable.
-                for (uint32_t y = 0; y < VarCount; y++)
-                    if (!strcmp(TokenBuffer[StartLocation - 1], LocalVar[y].Name))
-                    {
-                        //Stringify Stack Offset.
-                        uint8_t StackOffset[12] = { 0 };
-                        sprintf(StackOffset, "%d", LocalVar[y].StackOffset);
 
-                        //Write to ASM File.
-                        String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[4], PLUS, StackOffset, NEWVAREND, REGISTERS[RegisterCount], END);
-                        fwrite(String, 1, strlen(String), OutputFile);
-                        free(String);
-                        return 0;
-                    }
+            return NO_VALID_VARIABLE;                
 
-                return 1;
-            }
-        }
-        else
-        {
-            String = stringifyInstruction(5, MOVE, REGISTERS[RegisterCount], START, TokenBuffer[x + 1], END);
+        IsNotVariableOne:
+            if (TokenBuffer[MaxCount + 1][0] >= ':' && TokenBuffer[MaxCount + 1][0] <= '@') return INVALID_NAME_CHAR;
+            if (TokenBuffer[MaxCount + 1][0] == '(' || TokenBuffer[MaxCount + 1][0] == ')' || TokenBuffer[MaxCount + 1][0] == '{' || TokenBuffer[MaxCount + 1][0] == '}') return INVALID_NAME_CHAR;
+
+            String = stringifyInstruction(5, MOVE, REGISTERS[1], START, TokenBuffer[MaxCount + 1], END);
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
 
-            x++;
+        ValueTwo:
+            MaxCount += 2;
 
-            //Finding Variable.
+            if (TokenBuffer[MaxCount + 1][0] <= 'A' || TokenBuffer[MaxCount + 1][0] >= 'z') goto IsNotVariableTwo;
+            
+            //Checking if its Global Variable.
+            for(uint32_t x = 0; x < VariableCount; x++)
+                if(!strcmp(TokenBuffer[MaxCount + 1], NameBuffer[VARIABLENAME][x].Name))
+                {
+
+
+                }
+
+            //Checking if its Local Variable.
             for (uint32_t y = 0; y < VarCount; y++)
-                if (!strcmp(TokenBuffer[StartLocation - 1], LocalVar[y].Name))
+                if (!strcmp(TokenBuffer[MaxCount + 1], LocalVar[y].Name))
                 {
                     //Stringify Stack Offset.
                     uint8_t StackOffset[12] = { 0 };
                     sprintf(StackOffset, "%d", LocalVar[y].StackOffset);
 
                     //Write to ASM File.
-                    String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[4], PLUS, StackOffset, NEWVAREND, REGISTERS[RegisterCount], END);
+                    String = stringifyInstruction(7, MOVE, REGISTERS[3], VARSTART, REGISTERS[4], PLUS, StackOffset, VAREND);
                     fwrite(String, 1, strlen(String), OutputFile);
                     free(String);
-                    return 0;
+
+                    goto PerformOperator;
                 }
+
+                return NO_VALID_VARIABLE;
+
+        IsNotVariableTwo:
+            if (TokenBuffer[MaxCount + 1][0] >= ':' && TokenBuffer[MaxCount + 1][0] <= '@') return INVALID_NAME_CHAR;
+            if (TokenBuffer[MaxCount + 1][0] == '(' || TokenBuffer[MaxCount + 1][0] == ')' || TokenBuffer[MaxCount + 1][0] == '{' || TokenBuffer[MaxCount + 1][0] == '}') return INVALID_NAME_CHAR;
+
+            String = stringifyInstruction(5, MOVE, REGISTERS[3], START, TokenBuffer[MaxCount + 1], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String); 
+
+
+        PerformOperator:
+            if(TokenBuffer[MaxCount] == '+')
+            {
+                String = stringifyInstruction(5, ADDITION, REGISTERS[1], START, REGISTERS[3], END);
+                fwrite(String, 1, strlen(String), OutputFile);
+                free(String);
+                goto VariableEnd;
+            }
+
+        VariableEnd:
+            String = stringifyInstruction(5, MOVE, REGISTERS[0], START, REGISTERS[1], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+
+            MaxCount += 2; 
+            continue;                
         }
-    }
+
+        if(TokenBuffer[MaxCount] == '(')
+        {
+            PrecedenceCount++; 
+            MaxCount++;
+            continue;
+        }
+
+        if(TokenBuffer[MaxCount] == ')')
+        PrecedenceCount--;
+
+        MaxCount++;
+    } while(PrecedenceMax && TokenBuffer[MaxCount][0] != ';');
 
     return 0;
 }
