@@ -117,25 +117,25 @@ uint8_t ModifyStack(uint8_t Instruction, uint8_t* Value)
 
     switch (Instruction)
     {
-        case 'P':
-        {
-            String = stringifyInstruction(5, MOVE, REGISTERS[0], START, Value, END);
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
+    case 'P':
+    {
+        String = stringifyInstruction(5, MOVE, REGISTERS[0], START, Value, END);
+        fwrite(String, 1, strlen(String), OutputFile);
+        free(String);
 
-            String = stringifyInstruction(3, PUSH, REGISTERS[0], END);
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
-            break;
-        }
+        String = stringifyInstruction(3, PUSH, REGISTERS[0], END);
+        fwrite(String, 1, strlen(String), OutputFile);
+        free(String);
+        break;
+    }
 
-        case 'p':
-        {
-            String = stringifyInstruction(3, POP, REGISTERS[0], END);
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
-            break;
-        }
+    case 'p':
+    {
+        String = stringifyInstruction(3, POP, REGISTERS[0], END);
+        fwrite(String, 1, strlen(String), OutputFile);
+        free(String);
+        break;
+    }
     }
     return 0;
 }
@@ -190,16 +190,73 @@ uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount
 
     uint8_t* String = 0;
 
-
     uint32_t PrecedenceCount = 1, PrecedenceMax = 1, MaxCount = StartLocation;
+
+    if (TokenBuffer[StartLocation + 2][0] == ';')
+    {
+        //Checking if its Global Variable.
+        for (uint32_t x = 0; x < VariableCount; x++)
+            if (!strcmp(TokenBuffer[MaxCount + 1], NameBuffer[VARIABLENAME][x].Name))
+            {
+
+
+            }
+
+        //Checking if its Local Variable.
+        for (uint32_t y = 0; y < VarCount; y++)
+            if (!strcmp(TokenBuffer[MaxCount + 1], LocalVar[y].Name))
+            {
+                //Stringify Stack Offset.
+                uint8_t StackOffset[12] = { 0 };
+                sprintf(StackOffset, "%d", LocalVar[y].StackOffset);
+
+                //Write to ASM File.
+                String = stringifyInstruction(7, MOVE, REGISTERS[0], VARSTART, REGISTERS[4], PLUS, StackOffset, VAREND);
+                fwrite(String, 1, strlen(String), OutputFile);
+                free(String);
+
+
+                for(uint32_t z = 0; z < VarCount; z++)
+                    if (!strcmp(TokenBuffer[MaxCount - 1], LocalVar[z].Name))
+                    {
+                        sprintf(StackOffset, "%d", VarCount * 4 - LocalVar[z].StackOffset);
+                        String = stringifyInstruction(7, MOVE, NEWVARSTART, REGISTERS[4], PLUS, StackOffset, NEWVAREND, REGISTERS[0]);
+                        fwrite(String, 1, strlen(String), OutputFile);
+                        free(String);
+
+                        return 0;
+                    }
+
+                return 1;
+            }
+
+        //Is a Constant.
+        String = stringifyInstruction(5, MOVE, REGISTERS[0], START, TokenBuffer[MaxCount + 1], END);
+        fwrite(String, 1, strlen(String), OutputFile);
+        free(String);
+
+        for (uint32_t z = 0; z < VarCount; z++)
+            if (!strcmp(TokenBuffer[MaxCount - 1], LocalVar[z].Name))
+            {
+                uint8_t StackOffset[12] = { 0 };
+                sprintf(StackOffset, "%d", VarCount * 4 - LocalVar[z].StackOffset);
+                
+                String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[4], PLUS, StackOffset, NEWVAREND, REGISTERS[0], END);
+                fwrite(String, 1, strlen(String), OutputFile);
+                free(String);
+                return 0;
+            }
+
+        return 1;
+    }
 
     //Looping to Get Precedence and until the End of the Statement.
     do
     {
         //Getting Increase in Precedence and Checking if its max.
-        if(TokenBuffer[MaxCount] == '(')
+        if (TokenBuffer[MaxCount][0] == '(')
         {
-            if(PrecedenceCount == PrecedenceMax)
+            if (PrecedenceCount == PrecedenceMax)
                 PrecedenceMax++;
 
             PrecedenceCount++;
@@ -208,28 +265,36 @@ uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount
         }
 
         //Decreasing Precedence.
-        if(TokenBuffer[MaxCount] == ')') 
+        if (TokenBuffer[MaxCount][0] == ')')
             PrecedenceCount--;
 
         MaxCount++;
-    } while(TokenBuffer[MaxCount] != ';');
+    } while (TokenBuffer[MaxCount][0] != ';');
 
     MaxCount = StartLocation, PrecedenceCount = 1;
+
+    //Geting the Return Variable.
+    uint8_t ReturnVariableOffset[12] = { 0 };
+
+    for (uint32_t z = 0; z < VarCount; z++)
+        if (!strcmp(TokenBuffer[MaxCount - 1], LocalVar[z].Name))
+            sprintf(ReturnVariableOffset, "%d", VarCount * 4 - LocalVar[z].StackOffset);
+
+    if (!ReturnVariableOffset[0]) return 1;
 
     //Going Through Precedence.
     do
     {
         //Do Calculations at Right Precedence.
-        if(PrecedenceCount == PrecedenceMax)
+        if (PrecedenceCount == PrecedenceMax)
         {
             //Checking for Valid Variables.
             if (TokenBuffer[MaxCount + 1][0] <= 'A' || TokenBuffer[MaxCount + 1][0] >= 'z') goto IsNotVariableOne;
-        
-            //Checking if its Global Variable.
-            for(uint32_t x = 0; x < VariableCount; x++)
-                if(!strcmp(TokenBuffer[MaxCount + 1], NameBuffer[VARIABLENAME][x].Name))
-                {
 
+            //Checking if its Global Variable.
+            for (uint32_t x = 0; x < VariableCount; x++)
+                if (!strcmp(TokenBuffer[MaxCount + 1], NameBuffer[VARIABLENAME][x].Name))
+                {
 
                 }
 
@@ -239,7 +304,7 @@ uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount
                 {
                     //Stringify Stack Offset.
                     uint8_t StackOffset[12] = { 0 };
-                    sprintf(StackOffset, "%d", LocalVar[y].StackOffset);
+                    sprintf(StackOffset, "%d", VarCount * 4 - LocalVar[y].StackOffset);
 
                     //Write to ASM File.
                     String = stringifyInstruction(7, MOVE, REGISTERS[1], VARSTART, REGISTERS[4], PLUS, StackOffset, VAREND);
@@ -249,7 +314,7 @@ uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount
                     goto ValueTwo;
                 }
 
-            return NO_VALID_VARIABLE;                
+            return NO_VALID_VARIABLE;
 
         IsNotVariableOne:
             if (TokenBuffer[MaxCount + 1][0] >= ':' && TokenBuffer[MaxCount + 1][0] <= '@') return INVALID_NAME_CHAR;
@@ -263,10 +328,10 @@ uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount
             MaxCount += 2;
 
             if (TokenBuffer[MaxCount + 1][0] <= 'A' || TokenBuffer[MaxCount + 1][0] >= 'z') goto IsNotVariableTwo;
-            
+
             //Checking if its Global Variable.
-            for(uint32_t x = 0; x < VariableCount; x++)
-                if(!strcmp(TokenBuffer[MaxCount + 1], NameBuffer[VARIABLENAME][x].Name))
+            for (uint32_t x = 0; x < VariableCount; x++)
+                if (!strcmp(TokenBuffer[MaxCount + 1], NameBuffer[VARIABLENAME][x].Name))
                 {
 
 
@@ -278,7 +343,7 @@ uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount
                 {
                     //Stringify Stack Offset.
                     uint8_t StackOffset[12] = { 0 };
-                    sprintf(StackOffset, "%d", LocalVar[y].StackOffset);
+                    sprintf(StackOffset, "%d", VarCount * 4 - LocalVar[y].StackOffset);
 
                     //Write to ASM File.
                     String = stringifyInstruction(7, MOVE, REGISTERS[3], VARSTART, REGISTERS[4], PLUS, StackOffset, VAREND);
@@ -288,7 +353,7 @@ uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount
                     goto PerformOperator;
                 }
 
-                return NO_VALID_VARIABLE;
+            return NO_VALID_VARIABLE;
 
         IsNotVariableTwo:
             if (TokenBuffer[MaxCount + 1][0] >= ':' && TokenBuffer[MaxCount + 1][0] <= '@') return INVALID_NAME_CHAR;
@@ -296,11 +361,11 @@ uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount
 
             String = stringifyInstruction(5, MOVE, REGISTERS[3], START, TokenBuffer[MaxCount + 1], END);
             fwrite(String, 1, strlen(String), OutputFile);
-            free(String); 
+            free(String);
 
 
         PerformOperator:
-            if(TokenBuffer[MaxCount] == '+')
+            if (TokenBuffer[MaxCount][0] == '+')
             {
                 String = stringifyInstruction(5, ADDITION, REGISTERS[1], START, REGISTERS[3], END);
                 fwrite(String, 1, strlen(String), OutputFile);
@@ -309,26 +374,26 @@ uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount
             }
 
         VariableEnd:
-            String = stringifyInstruction(5, MOVE, REGISTERS[0], START, REGISTERS[1], END);
+            String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[4], PLUS, ReturnVariableOffset, NEWVAREND, REGISTERS[1], END);
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
 
-            MaxCount += 2; 
-            continue;                
+            MaxCount += 2;
+            continue;
         }
 
-        if(TokenBuffer[MaxCount] == '(')
+        if (TokenBuffer[MaxCount][0] == '(')
         {
-            PrecedenceCount++; 
+            PrecedenceCount++;
             MaxCount++;
             continue;
         }
 
-        if(TokenBuffer[MaxCount] == ')')
-        PrecedenceCount--;
+        if (TokenBuffer[MaxCount][0] == ')')
+            PrecedenceCount--;
 
         MaxCount++;
-    } while(PrecedenceMax && TokenBuffer[MaxCount][0] != ';');
+    } while (PrecedenceMax && TokenBuffer[MaxCount][0] != ';');
 
     return 0;
 }
@@ -551,9 +616,9 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
             continue;
         }
 
-        if(Buffer[y] == '#')
+        if (Buffer[y] == '#')
         {
-            while(Buffer[y] != '\n') x++;
+            while (Buffer[y] != '\n') x++;
             continue;
         }
 
@@ -744,17 +809,17 @@ uint8_t compile(const uint8_t* FileLocation, const uint8_t* OutputLocation)
 
     fread(Buffer, 1, Size, File);
 
-    if(OutputLocation)
+    if (OutputLocation)
     {
         OutputFile = fopen(OutputLocation, "rb");
-        if(OutputFile)
+        if (OutputFile)
         {
             fclose(OutputFile);
             remove(OutputLocation);
-        }        
+        }
 
         OutputFile = fopen(OutputLocation, "ab");
-        if(!OutputFile) return 1;
+        if (!OutputFile) return 1;
     }
 
     if (getTokens(Buffer, Size)) return 3;
