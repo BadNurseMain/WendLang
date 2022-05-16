@@ -24,7 +24,7 @@ uint8_t OR[] = "or ";
 
 
 
-uint8_t INSTRUCTIONS[12][5] = 
+uint8_t INSTRUCTIONS[12][5] =
 {
     "mul ",
     "div ",
@@ -44,13 +44,41 @@ uint8_t CLOSEDBRACKET[] = "]\0";
 uint8_t NEWVARSTART[] = "[";
 uint8_t NEWVAREND[] = "], ";
 
-uint8_t REGISTERS[5][4] =
+uint8_t REGISTERS[4][7][4] =
 {
-    "eax",
-    "ebx",
-    "ecx",
-    "edx",
-    "esp"
+    {
+        "al",
+        "bl",
+        "cl",
+        "dl",
+    },
+
+    {
+        "ah",
+        "bh",
+        "ch",
+        "dh",
+    },
+
+    {
+        "ax",
+        "bx",
+        "cx",
+        "dx",
+        "sp",
+        "si",
+        "di"
+    },
+
+    {
+        "eax",
+        "ebx",
+        "ecx",
+        "edx",
+        "esp",
+        "esi",
+        "edi"
+    }
 };
 
 uint8_t START[] = ", ";
