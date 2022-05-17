@@ -184,7 +184,7 @@ uint32_t* getOrder(uint32_t StartLocation)
             continue;
         }
 
-        if(TokenBuffer[x][0] == '/')
+        if (TokenBuffer[x][0] == '/')
         {
             if (Orders[Division]) return 0;
             Orders[Division] = x;
@@ -199,33 +199,49 @@ uint8_t writeOperation(uint32_t OperatorLocation, uint32_t* Orders, uint8_t Offs
     uint8_t* String = 0;
 
     //Has an Operator in Front of First Value.
-    for(uint8_t y = 0; y < ORDER_SIZE; y++)
-        if(!(Orders[x] - Orders[y] - 2))
-        {
-            //Get First Value.
-            String = stringifyInstruction(5, MOVE, REGISTERS[3][1], START, REGISTERS[3][5], END);
-            fwrite(String, strlen(String), 1, OutputFile);
-            free(String);
-            goto secondOrderValue;
-        }
+    for (uint8_t y = 0; y < ORDER_SIZE; y++)
+        if (!(Orders[Offset] - Orders[y] - 2))
+            if(Offset > y)
+            {
+                uint8_t TempStack[12] = {0};
+                sprintf(TempStack, "%d", (y + 1) * 4);
+
+                String = stringifyInstruction(7, MOVE, REGISTERS[3][0], VARSTART, REGISTERS[3][4], MINUS, TempStack, VAREND);
+                fwrite(String, strlen(String), 1, OutputFile);
+                free(String);
+
+                goto secondOrderValue;
+            }
 
     //Get First Value.
-    String = stringifyInstruction(5, MOVE, REGISTERS[3][1], START, TokenBuffer[Orders[x] - 1], END);
+    String = stringifyInstruction(5, MOVE, REGISTERS[3][0], START, TokenBuffer[Orders[Offset] - 1], END);
     fwrite(String, strlen(String), 1, OutputFile);
     free(String);
+
+secondOrderValue:
+    for (uint8_t y = 0; y < ORDER_SIZE; y++)
+        if (!(Orders[Offset] - Orders[y] + 2))
+            if (Offset > y)
+            {
+                uint8_t TempStack[12] = { 0 };
+                sprintf(TempStack, "%d", (y + 1) * 4);
+
+                String = stringifyInstruction(7, MOVE, REGISTERS[3][3], VARSTART, REGISTERS[3][4], MINUS, TempStack, VAREND);
+                fwrite(String, strlen(String), 1, OutputFile);
+                free(String);
+
+                goto calculateValue;
+            }
 
     //Get Second Value.
-secondOrderValue:
-    String = stringifyInstruction(5, MOVE, REGISTERS[3][3], START, TokenBuffer[Orders[x] + 1], END);
+    String = stringifyInstruction(5, MOVE, REGISTERS[3][3], START, TokenBuffer[Orders[Offset] + 1], END);
     fwrite(String, strlen(String), 1, OutputFile);
     free(String);
 
-    String = stringifyInstruction(5, INSTRUCTIONS[Offset], REGISTERS[3][1], START, REGISTERS[3][3], END);
-    fwrite(String, strlen(String), 1, OutputFile);
-    free(String);
 
+calculateValue:
     //Specific to Multiply and Divide.
-    if(TokenBuffer[OperatorLocation][0] == Multiply || TokenBuffer[OperatorLocation][0] == Division)
+    if (Offset == Multiply || Offset == Division)
     {
         String = stringifyInstruction(3, INSTRUCTIONS[Offset], REGISTERS[3][3], END);
         fwrite(String, strlen(String), 1, OutputFile);
@@ -233,11 +249,19 @@ secondOrderValue:
         goto storeValue;
     }
 
-storeValue:
-    String = stringifyInstruction(5, INSTRUCTIONS[Addition], REGISTERS[3][5], START, REGISTERS[3][1], END);
+    //Calculate the Value.
+    String = stringifyInstruction(5, INSTRUCTIONS[Offset], REGISTERS[3][0], START, REGISTERS[3][3], END);
     fwrite(String, strlen(String), 1, OutputFile);
     free(String);
 
+storeValue:
+    //Store the new Value in front of Stack.
+    uint8_t ValueStack[12] = { 0 };
+    sprintf(ValueStack, "%d", (Offset + 1) * 4);
+
+    String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[3][4], MINUS, ValueStack, NEWVAREND, REGISTERS[3][0], END);
+    fwrite(String, strlen(String), 1, OutputFile);
+    free(String);
     return 0;
 }
 
@@ -264,7 +288,7 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
     if (!ReturnVar.Name) return 1;
 
     //Return Variable Stack.
-    uint8_t ReturnVarStack[12] = {0};
+    uint8_t ReturnVarStack[12] = { 0 };
     sprintf(ReturnVarStack, "%d", VarCount * 4 - ReturnVar.StackOffset);
 
     //Loop Variables.
@@ -287,7 +311,7 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
         //Decreasing Precedence.
         if (TokenBuffer[MaxCount][0] == ')') PrecedenceCount--;
 
-        if(!strcmp(TokenBuffer[MaxCount], ReturnVar.Name)) ReferencedItself = 1;
+        if (!strcmp(TokenBuffer[MaxCount], ReturnVar.Name)) ReferencedItself = 1;
 
         MaxCount++;
     } while (TokenBuffer[MaxCount][0] != ';');
@@ -301,9 +325,9 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
     free(String);
 
     //Storing Value.
-    if(ReferencedItself)
+    if (ReferencedItself)
     {
-        String = stringifyInstruction(7, MOVE, REGISTERS[3][6], VARSTART, REGISTERS[3][4]], PLUS, ReturnVarStack, VAREND);
+        String = stringifyInstruction(7, MOVE, REGISTERS[3][6], VARSTART, REGISTERS[3][4], PLUS, ReturnVarStack, VAREND);
         fwrite(String, strlen(String), 1, OutputFile);
         free(String);
     }
@@ -326,54 +350,9 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
 
             for (uint8_t x = 0; x < ORDER_SIZE; x++)
             {
-                if (Orders[x])
-                {
-                    //printf("Token Before: %s \nToken After:  %s \n", TokenBuffer[Orders[x] - 1], TokenBuffer[Orders[x] + 1]);
-
-                    //Check No Operator.
-                    for(uint8_t y = 0; y < ORDER_SIZE; y++)
-                        if(!(Orders[x] - Orders[y] - 2))
-                        {
-                            //Get First Value.
-                            String = stringifyInstruction(5, MOVE, REGISTERS[3][1], START, REGISTERS[3][5], END);
-                            fwrite(String, strlen(String), 1, OutputFile);
-                            free(String);
-                            goto secondOrderValue;
-                        }
-
-                    //Get First Value.
-                    String = stringifyInstruction(5, MOVE, REGISTERS[3][1], START, TokenBuffer[Orders[x] - 1], END);
-                    fwrite(String, strlen(String), 1, OutputFile);
-                    free(String);
-
-                secondOrderValue:
-                    //Get Second Value.
-                    String = stringifyInstruction(5, MOVE, REGISTERS[3][3], START, TokenBuffer[Orders[x] + 1], END);
-                    fwrite(String, strlen(String), 1, OutputFile);
-                    free(String);
-
-                    //Perform Operation.
-                    if(x == Division || x == Multiply)
-                    {
-                        String = stringifyInstruction(3, INSTRUCTIONS[x], REGISTERS[3][3], END);
-                        fwrite(String, strlen(String), 1, OutputFile);
-                        free(String);
-
-                        goto storeOrderValue;
-                    }
-
-                    String = stringifyInstruction(5, INSTRUCTIONS[x], REGISTERS[3][1], START, REGISTERS[3][3], END);
-                    fwrite(String, strlen(String), 1, OutputFile);
-                    free(String);
-
-                storeOrderValue:
-                    //Store in ESX.
-                    String = stringifyInstruction(5, INSTRUCTIONS[Addition], REGISTERS[3][5], START, REGISTERS[3][1], END);
-                    fwrite(String, strlen(String), 1, OutputFile);
-                    free(String);
-                }
+                if (Orders[x]) writeOperation(Orders[x], Orders, x);
             }
-            
+
             while (TokenBuffer[MaxCount][0] != ')' && TokenBuffer[MaxCount][0] != ';') MaxCount++;
 
             PrecedenceCount--;
