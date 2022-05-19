@@ -51,7 +51,6 @@ typedef struct
     uint32_t StackOffset;
 } LocalNameStruct;
 
-
 //Table of Precedence
 enum PrecedenceTable
 {
@@ -156,47 +155,52 @@ assignReturn:
     return 0;
 }
 
-uint32_t* getOrder(uint32_t StartLocation)
+uint32_t* getOrder(uint32_t* StartLocation)
 {
     uint32_t* Orders = calloc(ORDER_SIZE, sizeof(uint32_t));
     if (!Orders) return 0;
 
-    for (uint32_t x = StartLocation; TokenBuffer[x][0] != ')' && TokenBuffer[x][0] != ';' && TokenBuffer[x][0] != '('; x++)
+    uint32_t Loop = *StartLocation;
+
+    do
     {
-        if (TokenBuffer[x][0] == '*')
+        if (TokenBuffer[Loop][0] == '*')
         {
             if (Orders[Multiply]) return 0;
-            Orders[Multiply] = x;
-            continue;
+            Orders[Multiply] = Loop;
         }
 
-        if (TokenBuffer[x][0] == '+')
+        if (TokenBuffer[Loop][0] == '+')
         {
             if (Orders[Addition]) return 0;
-            Orders[Addition] = x;
-            continue;
+            Orders[Addition] = Loop;
         }
 
-        if (TokenBuffer[x][0] == '-')
+        if (TokenBuffer[Loop][0] == '-')
         {
             if (Orders[Subtraction]) return 0;
-            Orders[Subtraction] = x;
-            continue;
+            Orders[Subtraction] = Loop;
         }
 
-        if (TokenBuffer[x][0] == '/')
+        if (TokenBuffer[Loop][0] == '/')
         {
             if (Orders[Division]) return 0;
-            Orders[Division] = x;
-            continue;
+            Orders[Division] = Loop;
         }
-    }
+
+        ++Loop;
+    } while (TokenBuffer[Loop][0] != ')' && TokenBuffer[Loop][0] != ';' && TokenBuffer[Loop][0] != '(');
+
+    //Change Loop Location.
+    *StartLocation = Loop;
     return Orders;
 }
 
 uint8_t writeOperation(uint32_t OperatorLocation, uint32_t* Orders, uint8_t Offset)
 {
     uint8_t* String = 0;
+
+    printf("ValueOne: %s %s %s \n", TokenBuffer[OperatorLocation - 1],TokenBuffer[OperatorLocation], TokenBuffer[OperatorLocation + 1]);
 
     //Has an Operator in Front of First Value.
     for (uint8_t y = 0; y < ORDER_SIZE; y++)
@@ -212,10 +216,29 @@ uint8_t writeOperation(uint32_t OperatorLocation, uint32_t* Orders, uint8_t Offs
 
                 goto secondOrderValue;
             }
+    
+    
+    //Brackets
+    if (TokenBuffer[OperatorLocation - 1][0] == ')')
+    {
+        for (uint8_t y = 0; y < ORDER_SIZE; y++)
+            if (!(Orders[Offset] - Orders[y] - 3))
+            {
+                uint8_t TempStack[12] = { 0 };
+                sprintf(TempStack, "%d", (y + 1) * 4);
+
+                String = stringifyInstruction(7, MOVE, REGISTERS[3][0], VARSTART, REGISTERS[3][4], MINUS, TempStack, VAREND);
+                fwrite(String, strlen(String), 1, OutputFile);
+                free(String);
+
+                goto secondOrderValue;
+            }
+    }
 
     //Get First Value.
     String = stringifyInstruction(5, MOVE, REGISTERS[3][0], START, TokenBuffer[Orders[Offset] - 1], END);
     fwrite(String, strlen(String), 1, OutputFile);
+    
     free(String);
 
 secondOrderValue:
@@ -233,11 +256,27 @@ secondOrderValue:
                 goto calculateValue;
             }
 
+    //Brackets
+    if (TokenBuffer[Offset - 1] == ')')
+    {
+        for (uint8_t y = 0; y < ORDER_SIZE; y++)
+            if (!(Orders[OperatorLocation] - Orders[y] - 3))
+            {
+                uint8_t TempStack[12] = { 0 };
+                sprintf(TempStack, "%d", (y + 1) * 4);
+
+                String = stringifyInstruction(7, MOVE, REGISTERS[3][3], VARSTART, REGISTERS[3][4], MINUS, TempStack, VAREND);
+                fwrite(String, strlen(String), 1, OutputFile);
+                free(String);
+
+                goto calculateValue;
+            }
+    }
+
     //Get Second Value.
     String = stringifyInstruction(5, MOVE, REGISTERS[3][3], START, TokenBuffer[Orders[Offset] + 1], END);
     fwrite(String, strlen(String), 1, OutputFile);
     free(String);
-
 
 calculateValue:
     //Specific to Multiply and Divide.
@@ -293,7 +332,7 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
 
     //Loop Variables.
     uint8_t ReferencedItself = 0;
-    uint32_t PrecedenceCount = 1, PrecedenceMax = 1, MaxCount = StartLocation;
+    uint32_t PrecedenceCount = 0, PrecedenceMax = 0, MaxCount = StartLocation;
 
     //Looping to Get Precedence and until the End of the Statement.
     do
@@ -317,7 +356,7 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
     } while (TokenBuffer[MaxCount][0] != ';');
 
     //Resetting Variables.
-    MaxCount = StartLocation, PrecedenceCount = 1;
+    MaxCount = StartLocation, PrecedenceCount = 0;
 
     //Make Sure ESI is 0.
     String = stringifyInstruction(5, MOVE, REGISTERS[3][5], START, "0 ", END);
@@ -340,23 +379,24 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
         {
             --PrecedenceMax;
             MaxCount = StartLocation;
+            PrecedenceCount = 1;
             continue;
         }
 
         //If Both are Equal.
         if (PrecedenceMax == PrecedenceCount)
         {
-            uint32_t* Orders = getOrder(MaxCount);
+            uint32_t* Orders = getOrder(&MaxCount);
 
             for (uint8_t x = 0; x < ORDER_SIZE; x++)
             {
-                if (Orders[x]) writeOperation(Orders[x], Orders, x);
+                if (Orders[x])
+                {
+                    writeOperation(Orders[x], Orders, x);
+                }
             }
 
             while (TokenBuffer[MaxCount][0] != ')' && TokenBuffer[MaxCount][0] != ';') MaxCount++;
-
-            PrecedenceCount--;
-            MaxCount++;
             continue;
         }
 
@@ -369,10 +409,15 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
         }
 
         //Decreasing Precedence.
-        if (TokenBuffer[MaxCount][0] == ')') PrecedenceCount--;
+        if (TokenBuffer[MaxCount][0] == ')')
+        {
+            PrecedenceCount--;
+            MaxCount++;
+            continue;
+        }
 
         MaxCount++;
-    } while (PrecedenceMax);
+    } while (PrecedenceMax && TokenBuffer[MaxCount][0] != ';');
 
     return 0;
 }
