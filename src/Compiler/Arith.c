@@ -168,7 +168,7 @@ assignReturn:
     return 0;
 }
 
-OrderStruct* getOrders(uint32_t* StartLocation)
+OrderStruct* getOrder(uint32_t* StartLocation)
 {
     OrderStruct* Orders = calloc(ORDER_SIZE, sizeof(OrderStruct));
     if (!Orders) return 0;
@@ -225,155 +225,6 @@ OrderStruct* getOrders(uint32_t* StartLocation)
     return Orders;
 }
 
-uint32_t* getOrder(uint32_t* StartLocation)
-{
-    uint32_t* Orders = calloc(ORDER_SIZE, sizeof(uint32_t));
-    if (!Orders) return 0;
-
-    uint32_t Loop = *StartLocation;
-
-    do
-    {
-        if (TokenBuffer[Loop][0] == '*')
-        {
-            if (Orders[Multiply]) return 0;
-            Orders[Multiply] = Loop;
-        }
-
-        if (TokenBuffer[Loop][0] == '+')
-        {
-            if (Orders[Addition]) return 0;
-            Orders[Addition] = Loop;
-        }
-
-        if (TokenBuffer[Loop][0] == '-')
-        {
-            if (Orders[Subtraction]) return 0;
-            Orders[Subtraction] = Loop;
-        }
-
-        if (TokenBuffer[Loop][0] == '/')
-        {
-            if (Orders[Division]) return 0;
-            Orders[Division] = Loop;
-        }
-
-        ++Loop;
-    } while (TokenBuffer[Loop][0] != ')' && TokenBuffer[Loop][0] != ';' && TokenBuffer[Loop][0] != '(');
-
-    //Change Loop Location.
-    *StartLocation = Loop;
-    return Orders;
-}
-
-uint8_t writeOperation(uint32_t OperatorLocation, uint32_t* Orders, uint8_t Offset)
-{
-    uint8_t* String = 0;
-
-    printf("ValueOne: %s %s %s \n", TokenBuffer[OperatorLocation - 1],TokenBuffer[OperatorLocation], TokenBuffer[OperatorLocation + 1]);
-
-    //Has an Operator in Front of First Value.
-    for (uint8_t y = 0; y < ORDER_SIZE; y++)
-        if (!(Orders[Offset] - Orders[y] - 2))
-            if(Offset > y)
-            {
-                uint8_t TempStack[12] = {0};
-                sprintf(TempStack, "%d", (y + 1) * 4);
-
-                String = stringifyInstruction(7, MOVE, REGISTERS[3][0], VARSTART, REGISTERS[3][4], MINUS, TempStack, VAREND);
-                fwrite(String, strlen(String), 1, OutputFile);
-                free(String);
-
-                goto secondOrderValue;
-            }
-    
-    
-    //Brackets
-    if (TokenBuffer[OperatorLocation - 1][0] == ')')
-    {
-        for (uint8_t y = 0; y < ORDER_SIZE; y++)
-            if (!(Orders[Offset] - Orders[y] - 3))
-            {
-                uint8_t TempStack[12] = { 0 };
-                sprintf(TempStack, "%d", (y + 1) * 4);
-
-                String = stringifyInstruction(7, MOVE, REGISTERS[3][0], VARSTART, REGISTERS[3][4], MINUS, TempStack, VAREND);
-                fwrite(String, strlen(String), 1, OutputFile);
-                free(String);
-
-                goto secondOrderValue;
-            }
-    }
-
-    //Get First Value.
-    String = stringifyInstruction(5, MOVE, REGISTERS[3][0], START, TokenBuffer[Orders[Offset] - 1], END);
-    fwrite(String, strlen(String), 1, OutputFile);
-    
-    free(String);
-
-secondOrderValue:
-    for (uint8_t y = 0; y < ORDER_SIZE; y++)
-        if (!(Orders[Offset] - Orders[y] + 2))
-            if (Offset > y)
-            {
-                uint8_t TempStack[12] = { 0 };
-                sprintf(TempStack, "%d", (y + 1) * 4);
-
-                String = stringifyInstruction(7, MOVE, REGISTERS[3][3], VARSTART, REGISTERS[3][4], MINUS, TempStack, VAREND);
-                fwrite(String, strlen(String), 1, OutputFile);
-                free(String);
-
-                goto calculateValue;
-            }
-
-    //Brackets
-    if (TokenBuffer[Offset - 1][0] == ')')
-    {
-        for (uint8_t y = 0; y < ORDER_SIZE; y++)
-            if (!(Orders[OperatorLocation] - Orders[y] - 3))
-            {
-                uint8_t TempStack[12] = { 0 };
-                sprintf(TempStack, "%d", (y + 1) * 4);
-
-                String = stringifyInstruction(7, MOVE, REGISTERS[3][3], VARSTART, REGISTERS[3][4], MINUS, TempStack, VAREND);
-                fwrite(String, strlen(String), 1, OutputFile);
-                free(String);
-
-                goto calculateValue;
-            }
-    }
-
-    //Get Second Value.
-    String = stringifyInstruction(5, MOVE, REGISTERS[3][3], START, TokenBuffer[Orders[Offset] + 1], END);
-    fwrite(String, strlen(String), 1, OutputFile);
-    free(String);
-
-calculateValue:
-    //Specific to Multiply and Divide.
-    if (Offset == Multiply || Offset == Division)
-    {
-        String = stringifyInstruction(3, INSTRUCTIONS[Offset], REGISTERS[3][3], END);
-        fwrite(String, strlen(String), 1, OutputFile);
-        free(String);
-        goto storeValue;
-    }
-
-    //Calculate the Value.
-    String = stringifyInstruction(5, INSTRUCTIONS[Offset], REGISTERS[3][0], START, REGISTERS[3][3], END);
-    fwrite(String, strlen(String), 1, OutputFile);
-    free(String);
-
-storeValue:
-    //Store the new Value in front of Stack.
-    uint8_t ValueStack[12] = { 0 };
-    sprintf(ValueStack, "%d", (Offset + 1) * 4);
-
-    String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[3][4], MINUS, ValueStack, NEWVAREND, REGISTERS[3][0], END);
-    fwrite(String, strlen(String), 1, OutputFile);
-    free(String);
-    return 0;
-}
-
 inline uint8_t getOperator(uint32_t OperatorLocation)
 {
     switch(TokenBuffer[OperatorLocation][0])
@@ -387,7 +238,7 @@ inline uint8_t getOperator(uint32_t OperatorLocation)
     return 0;
 }
 
-uint8_t writeOperations(uint32_t OperatorLocation, OrderStruct** Orders, uint8_t OrdersOffset, uint32_t OrderCount)
+uint8_t writeOperation(uint32_t OperatorLocation, OrderStruct** Orders, uint8_t OrdersOffset, uint32_t OrderCount)
 {
     uint8_t* String = 0;
     uint32_t OperatorBufferLocation = 0;
@@ -404,10 +255,18 @@ uint8_t writeOperations(uint32_t OperatorLocation, OrderStruct** Orders, uint8_t
 
     if(TokenBuffer[OperatorLocation - 1][0] == ')')
     {
+
         for(uint32_t x = 0; x < OrderCount; x++)
             for (uint32_t y = 0; y < Orders[x][getOperator(OperatorLocation - 3)].Count; y++)
                 if((OperatorLocation - 3) == Orders[x][getOperator(OperatorLocation - 3)].Locations[y])
                 {
+                    uint8_t TempStack[12] = { 0 };
+                    sprintf(TempStack, "%d", (getOperator(OperatorLocation - 2) + 1) * 4 * (x + 1) + (y * 4));
+
+                    String = stringifyInstruction(7, MOVE, REGISTERS[3][0], VARSTART, REGISTERS[3][4], MINUS, TempStack, VAREND);
+                    fwrite(String, strlen(String), 1, OutputFile);
+                    free(String);
+
                     ValueOneOffset = x;
                     ValueOneOperationLocation = y;
                     goto initValueTwoStart;
@@ -448,6 +307,15 @@ initValueTwoStart:
             for (uint32_t y = 0; y < Orders[x][getOperator(OperatorLocation + 3)].Count; y++)
                 if ((OperatorLocation + 3) == Orders[x][getOperator(OperatorLocation + 3)].Locations[y])
                 {
+                    uint8_t TempStack[12] = { 0 };
+                    sprintf(TempStack, "%d", (getOperator(OperatorLocation + 2) + 1) * 4 * x + (y * 4));
+
+                    String = stringifyInstruction(7, MOVE, REGISTERS[3][3], VARSTART, REGISTERS[3][4], MINUS, TempStack, VAREND);
+                    fwrite(String, strlen(String), 1, OutputFile);
+                    free(String);
+
+                    goto beginCalculation;
+
                     ValueTwoOffset = x;
                     ValueTwoOperationLocation = y;
                     goto beginCalculation;
@@ -574,14 +442,14 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
         {
             //uint32_t* Orders = getOrder(&MaxCount);
 
-            OrderBuffer[OrderNum++] = getOrders(&MaxCount);
+            OrderBuffer[OrderNum++] = getOrder(&MaxCount);
 
             for (uint8_t x = 0; x < ORDER_SIZE; x++)
             {
 
                 if(OrderBuffer[OrderNum - 1][x].Count)
                     for(uint32_t z = 0; z < OrderBuffer[OrderNum - 1][x].Count; z++)
-                        writeOperations(OrderBuffer[OrderNum - 1][x].Locations[z], OrderBuffer, OrderNum - 1, OrderCount);
+                        writeOperation(OrderBuffer[OrderNum - 1][x].Locations[z], OrderBuffer, OrderNum - 1, OrderCount);
 
                 //if (Orders[x])
                 //{
