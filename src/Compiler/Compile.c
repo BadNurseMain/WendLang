@@ -134,8 +134,8 @@ uint8_t initFunctions()
         free(String);
 
 
-        printf("Location: %d\n", Location);
         makeFunction(Location);
+        printf("Function [%s] created \n", PublicNameBuffer[FUNCTIONNAME][x].Name);
     }
 
     return 0;
@@ -351,8 +351,17 @@ uint8_t sortNames()
 
     for (uint8_t x = 0; x < TokenCount; x++)
     {
-        if (TokenBuffer[x][0] == '{') ++Scope;
-        else if (TokenBuffer[x][0] == '}') --Scope;
+        if (TokenBuffer[x][0] == '{')
+        {
+            volatile int TempValue = 0;
+            Scope++;
+        }
+
+        if(TokenBuffer[x][0] == '}')
+        {
+            volatile int TempValue = 0;
+            Scope--;
+        }
 
         //Check if it is a function.
         if (!strcmp(TokenBuffer[x], "fn\0"))
@@ -373,6 +382,9 @@ uint8_t sortNames()
         AddFunction:
             //Add Function to List.
             PublicNameBuffer[FUNCTIONNAME][PublicFunctionCount++] = Function;
+            
+            while (TokenBuffer[x][0] != ')') x++;
+
             continue;
         }
 
@@ -407,7 +419,7 @@ uint8_t sortNames()
             if (!PublicVariableCount) goto AddVariable;
 
             //Make sure Variable Name doesn't exist elsewhere.
-            for (uint32_t y = 0; y < PublicFunctionCount; y++)
+            for (uint32_t y = 0; y < PublicVariableCount; y++)
                 if (!strcmp(PublicNameBuffer[VARIABLENAME][y].Name, TokenBuffer[x - 1])) return NAME_ELSEWHERE;
 
         AddVariable:
