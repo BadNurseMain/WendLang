@@ -133,6 +133,8 @@ uint8_t initFunctions()
         fwrite(String, 1, strlen(String), OutputFile);
         free(String);
 
+
+        printf("Location: %d\n", Location);
         makeFunction(Location);
     }
 
@@ -326,8 +328,8 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
     if (Scope) return 1;
     TokenBuffer[TokenCount] = 0;
 
-    //for (uint32_t x = 0; x < TokenCount; x++)
-      //  printf("Name: %s Count: %d\n", TokenBuffer[x], x);
+    for (uint32_t x = 0; x < TokenCount; x++)
+        printf("Name: %s Count: %d\n", TokenBuffer[x], x);
 
     //printf("\n\n\nTotal Count: %d\n", TokenCount - 1);
     return 0;
