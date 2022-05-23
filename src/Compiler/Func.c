@@ -57,17 +57,17 @@ uint8_t makeFunction(uint32_t Location)
 {
     uint32_t ParameterCount = 0, VariableCount = 0, StackOffset = 0, Scope = 1;
     LocalNameStruct* Variables = malloc(sizeof(LocalNameStruct) * 10);
-    if(!Variables) return MALLOC_NO_MEM;
+    if (!Variables) return MALLOC_NO_MEM;
 
     uint32_t LoopOffset = Location;
     uint8_t ReturnType = 0;
 
     do
     {
-        if(TokenBuffer[LoopOffset + 1][0] == ':')
+        if (TokenBuffer[LoopOffset + 1][0] == ':')
         {
             //Making Sure Doesn't Abruptly End.
-            if(TokenBuffer[LoopOffset + 2][0] == ')') return NO_VALID_VARIABLE;
+            if (TokenBuffer[LoopOffset + 2][0] == ')') return NO_VALID_VARIABLE;
 
             //Get First Letter.
             uint8_t Character = TokenBuffer[LoopOffset + 2][0];
@@ -76,71 +76,71 @@ uint8_t makeFunction(uint32_t Location)
             if (Character == '(' || Character == ')' || Character == '{' || Character == '}') return INVALID_NAME_CHAR;
 
             //Make Sure isn't also Public Variable.
-            for(uint32_t y = 0; y < PublicVariableCount; y++)
-                if(!strcmp(TokenBuffer[LoopOffset + 2], PublicNameBuffer[VARIABLENAME][0].Name)) return NO_VALID_VARIABLE;
+            for (uint32_t y = 0; y < PublicVariableCount; y++)
+                if (!strcmp(TokenBuffer[LoopOffset + 2], PublicNameBuffer[VARIABLENAME][0].Name)) return NO_VALID_VARIABLE;
 
 
             //Checking Memory.
-            if(VariableCount % 10)
+            if (VariableCount % 10)
             {
                 void* TempBuffer = realloc(Variables, sizeof(LocalNameStruct) * (VariableCount / 10 + 1));
-                if(!TempBuffer) return MALLOC_NO_MEM;
+                if (!TempBuffer) return MALLOC_NO_MEM;
 
                 Variables = TempBuffer;
             }
 
-            LocalNameStruct TempStruct = {0};
+            LocalNameStruct TempStruct = { 0 };
             TempStruct.Name = TokenBuffer[LoopOffset + 2];
             TempStruct.StackOffset = 4 * StackOffset++;
-            
+
             Variables[VariableCount++] = TempStruct;
         }
 
         LoopOffset++;
-    } while(TokenBuffer[LoopOffset][0] != ')');
+    } while (TokenBuffer[LoopOffset][0] != ')');
 
-    LoopOffset+= 2;
+    LoopOffset += 2;
 
     do
     {
         //Making a New Variable.
-        if(TokenBuffer[LoopOffset][0] == ':')
+        if (TokenBuffer[LoopOffset][0] == ':')
         {
-            LocalNameStruct TempStruct = {0};
+            LocalNameStruct TempStruct = { 0 };
             TempStruct.Name = TokenBuffer[LoopOffset - 1];
             TempStruct.StackOffset = 4 * StackOffset++;
 
             Variables[VariableCount++] = TempStruct;
 
             //Need to fix Perform Arithmetic for this.
-            complexArith(LoopOffset, Variables, VariableCount, 1);
+            LoopOffset = complexArith(LoopOffset, Variables, VariableCount, 1);
             //ModifyStack("P", TokenBuffer[LoopOffset + 3]);
             //performArithmetic(LoopOffset, Variables, VariableCount);
         }
 
         //Changing Existing Variable.
-        if(TokenBuffer[LoopOffset][0] == '=' && TokenBuffer[LoopOffset - 2][0] != ':')
+        if (TokenBuffer[LoopOffset][0] == '=' && TokenBuffer[LoopOffset - 2][0] != ':')
         {
-            for(uint32_t y = 0; y < VariableCount; y++)
-                if(!strcmp(TokenBuffer[LoopOffset - 1], Variables[y].Name))
-                    performArithmetic(LoopOffset, Variables, VariableCount);
+            for (uint32_t y = 0; y < VariableCount; y++)
+                if (!strcmp(TokenBuffer[LoopOffset - 1], Variables[y].Name))
+                    LoopOffset = complexArith(LoopOffset, Variables, VariableCount, 0);
+
         }
 
-        if(TokenBuffer[LoopOffset][0] == '{' || TokenBuffer[LoopOffset][0] == '}')
+        if (TokenBuffer[LoopOffset][0] == '{' || TokenBuffer[LoopOffset][0] == '}')
         {
             Scope += (TokenBuffer[LoopOffset][0] - 124) * -1;
-            LoopOffset++;
-            continue;            
+            continue;
         }
 
-        if(!strcmp(TokenBuffer[LoopOffset], "ret"))
+        if (!strcmp(TokenBuffer[LoopOffset], "ret"))
         {
             uint8_t* String = 0;
 
-            if(TokenBuffer[LoopOffset + 1][0] >= '0' && TokenBuffer[LoopOffset][0] <= '9')
+            if (TokenBuffer[LoopOffset + 1][0] >= '0' && TokenBuffer[LoopOffset][0] <= '9')
             {
-                if(ReturnType)
-                    if(ReturnType != RETURN_TYPE_VAL) return RETURN_TYPE_INVALID;
+                if (ReturnType)
+                    if (ReturnType != RETURN_TYPE_VAL) return RETURN_TYPE_INVALID;
 
                 String = stringifyInstruction(3, TokenBuffer[LoopOffset], TokenBuffer[LoopOffset + 1], "\n\0");
                 fwrite(String, 1, strlen(String), OutputFile);
@@ -151,8 +151,8 @@ uint8_t makeFunction(uint32_t Location)
                 continue;
             }
 
-            if(ReturnType)
-                if(ReturnType != RETURN_TYPE_VOID) return RETURN_TYPE_INVALID;
+            if (ReturnType)
+                if (ReturnType != RETURN_TYPE_VOID) return RETURN_TYPE_INVALID;
 
             String = stringifyInstruction(2, TokenBuffer[LoopOffset], "\n\0");
             fwrite(String, 1, strlen(String), OutputFile);
@@ -164,7 +164,7 @@ uint8_t makeFunction(uint32_t Location)
         }
 
         LoopOffset++;
-    } while(Scope || TokenBuffer[LoopOffset][0]  != '}');
-    
+    } while (Scope || TokenBuffer[LoopOffset][0] != '}');
+
     return 0;
 }
