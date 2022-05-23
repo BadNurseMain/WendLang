@@ -103,10 +103,16 @@ uint8_t* stringifyInstruction(uint8_t StringCount, ...)
 
 OrderStruct* getOrder(uint32_t* StartLocation)
 {
-    OrderStruct* Orders = calloc(ORDER_SIZE, sizeof(OrderStruct));
-    if (!Orders) return 0;
 
     uint32_t Loop = *StartLocation;
+
+    if(Loop == 73)
+    {
+        volatile int TempValue = 0;
+    }
+
+    OrderStruct* Orders = calloc(ORDER_SIZE, sizeof(OrderStruct));
+    if (!Orders) return 0;
 
     do
     {
@@ -549,6 +555,10 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
         {
             OrderBuffer[OrderNum++] = getOrder(&MaxCount);
 
+            for (uint32_t w = 0; w < ORDER_SIZE; w++)
+                for (uint32_t z = 0; z < OrderBuffer[OrderNum - 1][w].Count; z++)
+                    printf("Locations %d \n", OrderBuffer[OrderNum - 1][w].Locations[z]);
+
             //printf("TokenCount: %d\n", MaxCount);
 
             if (MaxCount == 33)
@@ -580,6 +590,8 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
 
         MaxCount++;
     } while (PrecedenceMax || TokenBuffer[MaxCount][0] != ';');
+
+    //Cleanup.
 
     return 0;
 }
