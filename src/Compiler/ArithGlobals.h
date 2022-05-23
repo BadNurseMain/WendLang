@@ -38,6 +38,7 @@ uint8_t INSTRUCTIONS[12][5] =
 uint8_t PUSH[] = "push ";
 uint8_t POP[] = "pop ";
 uint8_t PLUS[] = " + ";
+uint8_t MINUS[] = " - ";
 uint8_t OPENBRACKET[] = "[\0";
 uint8_t CLOSEDBRACKET[] = "]\0";
 
