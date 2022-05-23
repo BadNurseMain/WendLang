@@ -11,7 +11,7 @@ int main(int argc, char* argv[])
         {
             if(!strcmp(argv[x], "-o"))
             {
-                strcpy(OutputLocation, argv[++x]);
+                strncpy(OutputLocation, argv[++x], 64);
                 continue;
             }
             return 1;
