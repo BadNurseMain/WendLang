@@ -47,14 +47,6 @@ extern uint32_t TokenCount;
 //Storing Local Variables.
 typedef struct
 {
-    uint8_t* Name;
-    uint8_t Scope[16];
-    uint8_t ScopeCount;
-    uint32_t StackOffset;
-} LocalNameStruct;
-
-typedef struct
-{
     uint32_t Count;
     uint32_t* Locations;
 } OrderStruct;
@@ -167,7 +159,7 @@ OrderStruct* getOrder(uint32_t* StartLocation)
     return Orders;
 }
 
-inline uint8_t getOperator(uint32_t OperatorLocation)
+uint8_t getOperator(uint32_t OperatorLocation)
 {
     switch(TokenBuffer[OperatorLocation][0])
     {
@@ -180,7 +172,7 @@ inline uint8_t getOperator(uint32_t OperatorLocation)
     return OPERATOR_ERROR;
 }
 
-inline uint32_t getTempOffset(OrderStruct** Orders, uint32_t OrderCount, uint32_t Position)
+uint32_t getTempOffset(OrderStruct** Orders, uint32_t OrderCount, uint32_t Position)
 {
     uint32_t Value = 0;
 
@@ -277,7 +269,7 @@ uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarC
         if (!strcmp(TokenBuffer[StartLocation - 1], LocalVar[x].Name))
             ReturnVar = LocalVar[x];
 
-    if (!ReturnVar.Name) return 1;
+    if (ReturnVar.Name) return 1;
 
     //Checking if it is a Number.
     if (TokenBuffer[StartLocation + 1][0] >= '0' && TokenBuffer[StartLocation + 1][0] <= '9')
@@ -324,13 +316,12 @@ assignReturn:
     return 0;
 }
 
-
 uint8_t writeOperation(uint32_t OperatorLocation, OrderStruct** Orders, uint8_t OrdersOffset, uint32_t OrderCount, LocalNameStruct* LocalVarBuffer, uint32_t LocalVarCount)
 {
     uint8_t* String = 0;
     uint32_t OperationType = getOperator(OperatorLocation), VariableLocation = 0;
     
-    if(!strcmp(TokenBuffer[OperatorLocation - 1], "Toes"))
+    if(!strcmp(TokenBuffer[OperatorLocation + 1], "Toes"))
     {
         volatile int TempValue = 0;
 
@@ -350,7 +341,7 @@ uint8_t writeOperation(uint32_t OperatorLocation, OrderStruct** Orders, uint8_t 
         {
             getTempValue(0, Orders, OrderCount, OperatorLocation, -2);
 
-            printf("Da String: %s Location :%d \n", TokenBuffer[OperatorLocation - 2], OperatorLocation - 2);
+            //printf("Da String: %s Location :%d \n", TokenBuffer[OperatorLocation - 2], OperatorLocation - 2);
             goto initValueTwoStart;
         }
     
@@ -446,6 +437,8 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
     LocalNameStruct ReturnVar = { 0 };
     LocalNameStruct* LocalVar = (LocalNameStruct*)LocalVarBuffer;
 
+    printf("Yum:%s Location:%d\n", TokenBuffer[StartLocation + 2], StartLocation + 2);
+
     //Is not a complex equation.
     if (TokenBuffer[StartLocation + 2][0] == ';')
     {
@@ -471,7 +464,7 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
     //For Use with GetOrder();
     uint32_t OrderCount = 1;
 
-    printf("StartToken: %s \n", TokenBuffer[MaxCount]);
+    //printf("StartToken: %s \n", TokenBuffer[MaxCount]);
 
     if (TokenBuffer[++MaxCount][0] == '(') OrderCount--;
 
@@ -496,7 +489,11 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
             PrecedenceCount--;
         }
 
-        if (!strcmp(TokenBuffer[MaxCount], ReturnVar.Name)) ReferencedItself = 1;
+        if (!strcmp(TokenBuffer[MaxCount], ReturnVar.Name))
+        {
+            volatile int TempValue = 0;
+            ReferencedItself = 1;
+        }
 
         MaxCount++;
     } while (TokenBuffer[MaxCount][0] != ';');
@@ -551,11 +548,9 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
         //If Both are Equal.
         if (PrecedenceMax == PrecedenceCount)
         {
-
-
             OrderBuffer[OrderNum++] = getOrder(&MaxCount);
 
-            printf("TokenCount: %d\n", MaxCount);
+            //printf("TokenCount: %d\n", MaxCount);
 
             if (MaxCount == 33)
             {
@@ -571,7 +566,7 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
 
                 if(OrderBuffer[OrderNum - 1][x].Count)
                 {
-                    printf("OrderNum Count: %d \n", OrderBuffer[OrderNum - 1][x].Count);
+                    //printf("OrderNum Count: %d \n", OrderBuffer[OrderNum - 1][x].Count);
 
                     for (uint32_t z = 0; z < OrderBuffer[OrderNum - 1][x].Count; z++)
                         writeOperation(OrderBuffer[OrderNum - 1][x].Locations[z], OrderBuffer, OrderNum - 1, OrderCount, LocalVarBuffer, LocalVarCount);
@@ -580,7 +575,7 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
 
             }
 
-            printf("EndToken: %s Location: %d \n", TokenBuffer[MaxCount], MaxCount);
+            //printf("EndToken: %s Location: %d \n", TokenBuffer[MaxCount], MaxCount);
             continue;
         }
 
@@ -588,4 +583,123 @@ uint8_t performArithmetic(uint32_t StartLocation, void* LocalVarBuffer, uint32_t
     } while (PrecedenceMax || TokenBuffer[MaxCount][0] != ';');
 
     return 0;
+}
+
+uint8_t complexArith(uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint8_t OptionalParam)
+{
+    //Not a Complex Equation.
+    if(TokenBuffer[StartLocation + 2][0] == ';')
+    {
+        if(isNotComplex(StartLocation, Variables, VariableCount)) return 1;
+        else return 0;
+    }
+
+        //Loop Variables.
+    uint8_t ReferencedItself = 0;
+    uint32_t PrecedenceCount = 0, PrecedenceMax = 0, MaxCount = StartLocation;
+    
+    //For Use with GetOrder();
+    uint32_t OrderCount = 1;
+
+    if (TokenBuffer[++MaxCount][0] == '(') OrderCount--;
+
+    //Looping to Get Precedence and until the End of the Statement.
+    do
+    {
+        //Getting Increase in Precedence and Checking if its max.
+        if (TokenBuffer[MaxCount][0] == '(')
+        {
+            if (PrecedenceCount == PrecedenceMax) PrecedenceMax++;
+
+            PrecedenceCount++;
+            MaxCount++;
+            OrderCount++;
+            continue;
+        }
+
+        //Decreasing Precedence.
+        if (TokenBuffer[MaxCount][0] == ')')
+        {
+            if(TokenBuffer[MaxCount + 1][0] != ';') OrderCount++;
+            PrecedenceCount--;
+        }
+
+        MaxCount++;
+    } while (TokenBuffer[MaxCount][0] != ';');
+   
+    //Allocating Memory for OrderCount.
+    uint32_t OrderNum = 0;
+
+    OrderStruct** OrderBuffer = calloc(OrderCount + 1, sizeof(OrderStruct**));
+    if (!OrderBuffer) return 1;
+
+
+    //Resetting Variables.
+    MaxCount = StartLocation + 1, PrecedenceCount = 0;
+
+    //Going Through Precedence.
+    do
+    {
+        //If Reached the End, reduce Precedence.
+        if (TokenBuffer[MaxCount][0] == ';')
+        {
+            --PrecedenceMax;
+            MaxCount = StartLocation + 1;
+            PrecedenceCount = 0;
+            continue;
+        }
+
+
+        //Increasing Precedence.
+        if (TokenBuffer[MaxCount][0] == '(')
+        {
+            PrecedenceCount++;
+            MaxCount++;
+            continue;
+        }
+
+        //Decreasing Precedence.
+        if (TokenBuffer[MaxCount][0] == ')')
+        {
+            PrecedenceCount--;
+            MaxCount++;
+            continue;
+        }
+
+        //If Both are Equal.
+        if (PrecedenceMax == PrecedenceCount)
+        {
+            OrderBuffer[OrderNum++] = getOrder(&MaxCount);
+
+            for (uint8_t x = 0; x < ORDER_SIZE; x++)
+                if(OrderBuffer[OrderNum - 1][x].Count)
+                    for (uint32_t z = 0; z < OrderBuffer[OrderNum - 1][x].Count; z++)
+                        writeOperation(OrderBuffer[OrderNum - 1][x].Locations[z], OrderBuffer, OrderNum - 1, OrderCount, Variables, VariableCount);
+            continue;
+        }
+
+        MaxCount++;
+    } while (PrecedenceMax || TokenBuffer[MaxCount][0] != ';');
+   
+    //What to do After.
+    uint8_t* String = 0;
+
+    if(OptionalParam == 1)
+    {
+        String = stringifyInstruction(3, PUSH, REGISTERS[3][0], END);
+        fwrite(String, 1, strlen(String), OutputFile);
+        free(String);
+        return 0;
+    }
+
+    for(uint32_t x = 0; x < VariableCount; x++)
+        if(!strcmp(TokenBuffer[StartLocation - 1], Variables[x].Name))
+        {
+            String = stringifyInstruction(9, MOVE, NEWVARSTART, REGISTERS[3][4], PLUS, Variables[x].StackOffset, NEWVAREND, REGISTERS[3][0], END);
+            fwrite(String, 1, strlen(String), OutputFile);
+            free(String);
+            return 0;
+        }
+
+    return 1;
 }
