@@ -15,8 +15,7 @@
 
 #include "Compile.h"
 #include "Arith.h"
-
-
+#include "Func.h"
 
 #ifndef ERR_DBG
 #define ERR_DBG
@@ -134,106 +133,9 @@ uint8_t initFunctions()
         fwrite(String, 1, strlen(String), OutputFile);
         free(String);
 
-        if (TokenBuffer[Location + 2][0] == ')')
-        {
-            uint32_t FunctionStart = Location + 4;
-
-            //Scope of Function.
-            uint8_t Scope = 1;
-            uint8_t ScopeOffset = 1;
-
-            //Stack of Function.
-            uint8_t Stack = 4;
-
-            //Storing Local Variables.
-            typedef struct
-            {
-                uint8_t* Name;
-                uint8_t Scope[16];
-                uint8_t ScopeCount;
-                uint32_t StackOffset;
-            } LocalNameStruct;
-
-            //Creating Buffer to Store Local Variables.
-            LocalNameStruct* LocalVar = malloc(sizeof(LocalNameStruct) * 100);
-            if (!LocalVar) return BUFFER_INIT_ERROR;
-
-            uint32_t LocalVarCount = 0;
-
-            //Looping over all of the Tokens in the Function.
-            for (uint8_t y = FunctionStart; Scope; y++)
-            {
-                //Checking Scope.
-                if (TokenBuffer[y][0] == '}')
-                {
-                    --Scope;
-
-                    for (uint8_t z = LocalVarCount; z > 0; z--)
-                        if (LocalVar[z].Scope[Scope])
-                        {
-                            ScopeOffset = LocalVar[z].Scope[Scope] + 1;
-                            break;
-                        }
-
-                    continue;
-                }
-                else if (TokenBuffer[y][0] == '{')
-                {
-                    ++Scope;
-                    continue;
-                }
-
-                if (TokenBuffer[y][0] == ':')
-                {
-                    //Create Temporary Info until its passed to LocalVar.
-                    //uint8_t TempScope[16] = LocalVar[LocalVarCount - 1].Scope;
-                    LocalNameStruct TempStruct = { 0 };
-                    TempStruct.Name = TokenBuffer[y - 1];
-                    TempStruct.StackOffset = Stack;
-                    TempStruct.ScopeCount = Scope;
-
-                    //Calculate Scope of Previous Variables.
-                    if (Scope == 1)
-                    {
-                        TempStruct.Scope[0] = x + 1;
-                        goto initFunctionCreateInstruction;
-                    }
-
-                    if (Scope == LocalVar[LocalVarCount - 1].ScopeCount)
-                        for (uint8_t z = 0; z < Scope; z++)
-                            TempStruct.Scope[z] = LocalVar[LocalVarCount - 1].Scope[z];
-
-
-                initFunctionCreateInstruction:
-                    ModifyStack('P', TokenBuffer[y + 3]);
-                    Stack += 4;
-
-                    LocalVar[LocalVarCount++] = TempStruct;
-                    continue;
-                }
-
-                if (TokenBuffer[y][0] == '=' && TokenBuffer[y - 2][0] != ':')
-                {
-                    for (uint32_t z = 0; z < LocalVarCount; z++)
-                        if (!strcmp(TokenBuffer[y - 1], LocalVar[z].Name))
-                            performArithmetic(y, LocalVar, LocalVarCount);
-                    continue;
-                }
-
-            }
-
-            //Popping off all variables on the stack.
-            for (uint32_t y = Stack / 4; y > 1; y--)
-                ModifyStack('p', 0);
-
-            //Clearing LocalVar Buffer.
-            free(LocalVar);
-
-            String = stringifyInstruction(1, "ret\n\n");
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
-        }
+        makeFunction(Location);
     }
+
     return 0;
 }
 
@@ -379,7 +281,7 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
 
         Syntax:
             //Get Token Before Syntax.
-            if (Buffer[y - 1] == ' ' || Buffer[y - 1] == '(' || Buffer[y - 1] == ')' || Buffer[y - 1] == '{' || Buffer[y - 1] == '}' || Buffer[y - 1] == '\r' || Buffer[y - 1] == '\n' || Buffer[y - 1] == '\t') goto SyntaxStore;
+            if (Buffer[y - 1] == ' ' || Buffer[y - 1] == '(' || Buffer[y - 1] == '{' || Buffer[y - 1] == '\r' || Buffer[y - 1] == '\n' || Buffer[y - 1] == '\t') goto SyntaxStore;
 
             TokenBuffer[TokenCount] = malloc(y - x);
             if (!TokenBuffer[TokenCount]) return BUFFER_INIT_ERROR;
@@ -424,9 +326,10 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
     if (Scope) return 1;
     TokenBuffer[TokenCount] = 0;
 
-    for (uint32_t x = 0; x < TokenCount; x++)
-        printf("Token: %s Location: %d \n", TokenBuffer[x], x);
+    //for (uint32_t x = 0; x < TokenCount; x++)
+      //  printf("Name: %s Count: %d\n", TokenBuffer[x], x);
 
+    //printf("\n\n\nTotal Count: %d\n", TokenCount - 1);
     return 0;
 }
 
