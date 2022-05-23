@@ -81,7 +81,7 @@ uint8_t makeFunction(uint32_t Location)
 
 
             //Checking Memory.
-            if (VariableCount % 10)
+            if (!(VariableCount % 10) && VariableCount)
             {
                 void* TempBuffer = realloc(Variables, sizeof(LocalNameStruct) * (VariableCount / 10 + 1));
                 if (!TempBuffer) return MALLOC_NO_MEM;
@@ -166,5 +166,7 @@ uint8_t makeFunction(uint32_t Location)
         LoopOffset++;
     } while (Scope || TokenBuffer[LoopOffset][0] != '}');
 
+
+    free(Variables);
     return 0;
 }
