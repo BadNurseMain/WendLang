@@ -133,7 +133,6 @@ uint8_t initFunctions()
         fwrite(String, 1, strlen(String), OutputFile);
         free(String);
 
-
         makeFunction(Location);
         printf("Function [%s] created \n", PublicNameBuffer[FUNCTIONNAME][x].Name);
     }
@@ -331,7 +330,6 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
     for (uint32_t x = 0; x < TokenCount; x++)
         printf("Name: %s Count: %d\n", TokenBuffer[x], x);
 
-    //printf("\n\n\nTotal Count: %d\n", TokenCount - 1);
     return 0;
 }
 
@@ -351,17 +349,9 @@ uint8_t sortNames()
 
     for (uint8_t x = 0; x < TokenCount; x++)
     {
-        if (TokenBuffer[x][0] == '{')
-        {
-            volatile int TempValue = 0;
-            Scope++;
-        }
+        if (TokenBuffer[x][0] == '{') Scope++;
 
-        if(TokenBuffer[x][0] == '}')
-        {
-            volatile int TempValue = 0;
-            Scope--;
-        }
+        if (TokenBuffer[x][0] == '}') Scope--;
 
         //Check if it is a function.
         if (!strcmp(TokenBuffer[x], "fn\0"))
@@ -384,7 +374,6 @@ uint8_t sortNames()
             PublicNameBuffer[FUNCTIONNAME][PublicFunctionCount++] = Function;
             
             while (TokenBuffer[x][0] != ')') x++;
-
             continue;
         }
 
