@@ -170,3 +170,9 @@ uint8_t makeFunction(uint32_t Location)
     free(Variables);
     return 0;
 }
+
+uint8_t callFunction(uint8_t ReturnRegister)
+{
+
+    return 0;
+}
