@@ -218,7 +218,7 @@ uint8_t getTempValue(uint8_t ValueNumber, OrderStruct** Orders, uint32_t OrderCo
     return 1;
 }
 
-uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarCount)
+uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarCount, uint8_t Type)
 {
     //Setup.
     uint8_t* String = 0;
@@ -226,12 +226,19 @@ uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarC
 
     LocalNameStruct ReturnVar = { 0 };
 
+    uint32_t Offset = 1;
+
+    if (TokenBuffer[StartLocation - 2][0] == ':') Offset = 3;
+
     //Getting the Return Variable.
     for (uint32_t x = 0; x < VarCount; x++)
-        if (!strcmp(TokenBuffer[StartLocation - 1], LocalVar[x].Name))
+    {
+        if (!strcmp(TokenBuffer[StartLocation - Offset], LocalVar[x].Name))
             ReturnVar = LocalVar[x];
+    }
 
-    if (ReturnVar.Name) return 1;
+
+    if (!ReturnVar.Name) return 1;
 
     //Checking if it is a Number.
     if (TokenBuffer[StartLocation + 1][0] >= '0' && TokenBuffer[StartLocation + 1][0] <= '9')
@@ -269,8 +276,16 @@ uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarC
 
     //Assigning the Values from the Returns.
 assignReturn:
+    if(Type == 1)
+    {
+        String = stringifyInstruction(3, PUSH, REGISTERS[3][0], END);
+        fwrite(String, 1, strlen(String), OutputFile);
+        free(String);
+        return 0;
+    }
+
     uint8_t ReturnStack[12] = { 0 };
-    sprintf(ReturnStack, "%d", VarCount * 4 - ReturnVar.StackOffset);
+    sprintf(ReturnStack, "%d", (VarCount - 1 - ReturnVar.StackOffset) * 4);
 
     String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[3][4], PLUS, ReturnStack, NEWVAREND, REGISTERS[3][0], END);
     fwrite(String, 1, strlen(String), OutputFile);
@@ -390,11 +405,13 @@ beginCalculation:
 
 uint32_t complexArith(uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint8_t OptionalParam)
 {
+    uint8_t* String = 0;
+
     //Not a Complex Equation.
     if (TokenBuffer[StartLocation + 2][0] == ';')
     {
-        if (isNotComplex(StartLocation, Variables, VariableCount)) return 1;
-        else return 0;
+        if (isNotComplex(StartLocation, Variables, VariableCount, OptionalParam)) return 1;
+        else return StartLocation + 3;;
     }
 
     //Loop Variables.
@@ -483,8 +500,7 @@ uint32_t complexArith(uint32_t StartLocation, LocalNameStruct* Variables, uint32
         MaxCount++;
     } while (PrecedenceMax || TokenBuffer[MaxCount][0] != ';');
 
-    //What to do After.
-    uint8_t* String = 0;
+
 
     if (OptionalParam == 1)
     {
