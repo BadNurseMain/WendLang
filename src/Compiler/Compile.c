@@ -282,7 +282,7 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
 
         Syntax:
             //Get Token Before Syntax.
-            if (Buffer[y - 1] == ' ' || Buffer[y - 1] == '(' || Buffer[y - 1] == '{' || Buffer[y - 1] == '\r' || Buffer[y - 1] == '\n' || Buffer[y - 1] == '\t') goto SyntaxStore;
+            if (Buffer[y - 1] == ' ' || Buffer[y - 1] == '(' || Buffer[y - 1] == ')' || Buffer[y - 1] == '{' || Buffer[y - 1] == '}' || Buffer[y - 1] == '\r' || Buffer[y - 1] == '\n' || Buffer[y - 1] == '\t') goto SyntaxStore;
 
             TokenBuffer[TokenCount] = malloc(y - x);
             if (!TokenBuffer[TokenCount]) return BUFFER_INIT_ERROR;
