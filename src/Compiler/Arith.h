@@ -1,13 +1,30 @@
 #ifndef STDLIB
 #define STDLIB
 
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+
 #include <stdint.h>
+#include <string.h>
 #include <stdarg.h>
 
 #endif
 
-uint8_t performArithmetic(uint32_t StartLocation, void* Names, uint32_t VarCount);
+/*
+    Purpose:
+        * Perform Arithmetic, both complex and simple.
+        * Assess Precedence.
+        * Perform Pointer Logic.
+        * Allow Variables self-reference themselves.
+
+*/
+
+typedef struct
+{
+    uint8_t* Name;
+    uint8_t Scope[16];
+    uint8_t ScopeCount;
+    uint32_t StackOffset;
+} LocalNameStruct;
+
+uint32_t complexArith(uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint8_t OptionalParam);

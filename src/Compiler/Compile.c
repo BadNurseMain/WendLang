@@ -1,22 +1,6 @@
-//TODO: Tokenize everything. (Done)
-//TODO: Check for Variables. (Done but does not have Scope)
-//TODO: Design Scope. (Mostly done)
-//TODO: Design Stack for local Variables. (Done)
-//TODO: Create AST (Need to add Precedence).
-
-//What to do:
-//Make String ASM code more modular. (Done).
-//Introduce Functions. (Done Mostly, need improve)
-//Design Precedence
-//Introduce Pointers.
-//Introduce Arrays.
-//Create a Standard.
-
-
 #include "Compile.h"
 #include "Arith.h"
-
-
+#include "Func.h"
 
 #ifndef ERR_DBG
 #define ERR_DBG
@@ -49,9 +33,9 @@ typedef struct
 } NameStruct;
 
 //Sorting Tokens
-NameStruct** NameBuffer = 0;
-uint32_t FunctionCount = 0;
-uint32_t VariableCount = 0;
+NameStruct** PublicNameBuffer = 0;
+uint32_t PublicFunctionCount = 0;
+uint32_t PublicVariableCount = 0;
 
 //Output File.
 FILE* OutputFile = 0;
@@ -76,164 +60,23 @@ FILE* OutputFile = 0;
 //Instruction related Functions.
 extern uint8_t* stringifyInstruction(uint8_t StringCount, ...);
 
-uint8_t ModifyStack(uint8_t Instruction, uint8_t* Value)
-{
-    uint8_t MOVE[] = "mov ";
-    uint8_t PUSH[] = "push ";
-    uint8_t POP[] = "pop ";
-
-    uint8_t REGISTERS[5][4] =
-    {
-        "eax",
-        "ebx",
-        "ecx",
-        "edx",
-        "esp"
-    };
-
-    uint8_t START[] = ", ";
-    uint8_t END[] = "\n\0";
-
-    uint8_t* String = 0;
-
-    switch (Instruction)
-    {
-    case 'P':
-    {
-        String = stringifyInstruction(5, MOVE, REGISTERS[0], START, Value, END);
-        fwrite(String, 1, strlen(String), OutputFile);
-        free(String);
-
-        String = stringifyInstruction(3, PUSH, REGISTERS[0], END);
-        fwrite(String, 1, strlen(String), OutputFile);
-        free(String);
-        break;
-    }
-
-    case 'p':
-    {
-        String = stringifyInstruction(3, POP, REGISTERS[0], END);
-        fwrite(String, 1, strlen(String), OutputFile);
-        free(String);
-        break;
-    }
-    }
-    return 0;
-}
-
 //Initialisation related.
 uint8_t initFunctions()
 {
-    for (uint8_t x = 0; x < FunctionCount; x++)
+    for (uint8_t x = 0; x < PublicFunctionCount; x++)
     {
         //Variable for the Location of the Function.
-        uint32_t Location = NameBuffer[FUNCTIONNAME][x].Location;
+        uint32_t Location = PublicNameBuffer[FUNCTIONNAME][x].Location;
 
         //Writing the Name of the Buffer and translating it to a function in asm.
-        uint8_t* String = stringifyInstruction(2, NameBuffer[FUNCTIONNAME][x].Name, ":\n\0");
+        uint8_t* String = stringifyInstruction(2, PublicNameBuffer[FUNCTIONNAME][x].Name, ":\n\0");
         fwrite(String, 1, strlen(String), OutputFile);
         free(String);
 
-        if (TokenBuffer[Location + 2][0] == ')')
-        {
-            uint32_t FunctionStart = Location + 4;
-
-            //Scope of Function.
-            uint8_t Scope = 1;
-            uint8_t ScopeOffset = 1;
-
-            //Stack of Function.
-            uint8_t Stack = 4;
-
-            //Storing Local Variables.
-            typedef struct
-            {
-                uint8_t* Name;
-                uint8_t Scope[16];
-                uint8_t ScopeCount;
-                uint32_t StackOffset;
-            } LocalNameStruct;
-
-            //Creating Buffer to Store Local Variables.
-            LocalNameStruct* LocalVar = malloc(sizeof(LocalNameStruct) * 100);
-            if (!LocalVar) return BUFFER_INIT_ERROR;
-
-            uint32_t LocalVarCount = 0;
-
-            //Looping over all of the Tokens in the Function.
-            for (uint8_t y = FunctionStart; Scope; y++)
-            {
-                //Checking Scope.
-                if (TokenBuffer[y][0] == '}')
-                {
-                    --Scope;
-
-                    for (uint8_t z = LocalVarCount; z > 0; z--)
-                        if (LocalVar[z].Scope[Scope])
-                        {
-                            ScopeOffset = LocalVar[z].Scope[Scope] + 1;
-                            break;
-                        }
-
-                    continue;
-                }
-                else if (TokenBuffer[y][0] == '{')
-                {
-                    ++Scope;
-                    continue;
-                }
-
-                if (TokenBuffer[y][0] == ':')
-                {
-                    //Create Temporary Info until its passed to LocalVar.
-                    //uint8_t TempScope[16] = LocalVar[LocalVarCount - 1].Scope;
-                    LocalNameStruct TempStruct = { 0 };
-                    TempStruct.Name = TokenBuffer[y - 1];
-                    TempStruct.StackOffset = Stack;
-                    TempStruct.ScopeCount = Scope;
-
-                    //Calculate Scope of Previous Variables.
-                    if (Scope == 1)
-                    {
-                        TempStruct.Scope[0] = x + 1;
-                        goto initFunctionCreateInstruction;
-                    }
-
-                    if (Scope == LocalVar[LocalVarCount - 1].ScopeCount)
-                        for (uint8_t z = 0; z < Scope; z++)
-                            TempStruct.Scope[z] = LocalVar[LocalVarCount - 1].Scope[z];
-
-
-                initFunctionCreateInstruction:
-                    ModifyStack('P', TokenBuffer[y + 3]);
-                    Stack += 4;
-
-                    LocalVar[LocalVarCount++] = TempStruct;
-                    continue;
-                }
-
-                if (TokenBuffer[y][0] == '=' && TokenBuffer[y - 2][0] != ':')
-                {
-                    for (uint32_t z = 0; z < LocalVarCount; z++)
-                        if (!strcmp(TokenBuffer[y - 1], LocalVar[z].Name))
-                            performArithmetic(y, LocalVar, LocalVarCount);
-                    continue;
-                }
-
-            }
-
-            //Popping off all variables on the stack.
-            for (uint32_t y = Stack / 4; y > 1; y--)
-                ModifyStack('p', 0);
-
-            //Clearing LocalVar Buffer.
-            free(LocalVar);
-
-            String = stringifyInstruction(1, "ret\n\n");
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
-        }
+        makeFunction(Location);
+        printf("Function [%s] created \n", PublicNameBuffer[FUNCTIONNAME][x].Name);
     }
+
     return 0;
 }
 
@@ -254,23 +97,23 @@ uint8_t initVariables()
     uint8_t BSSSection[] = "Section .bss\n\0";
     fwrite(BSSSection, 1, strlen(BSSSection), OutputFile);
 
-    for (uint32_t x = 0; x < VariableCount; x++)
+    for (uint32_t x = 0; x < PublicVariableCount; x++)
     {
         uint8_t VARRESB[] = ": resb ";
         uint8_t END[] = "\n\0";
-        size_t Length = (uint16_t)strlen(NameBuffer[VARIABLENAME][x].Name) + strlen(VARRESB) + strlen(END) + 1;
+        size_t Length = (uint16_t)strlen(PublicNameBuffer[VARIABLENAME][x].Name) + strlen(VARRESB) + strlen(END) + 1;
 
         uint8_t* Buffer = malloc(Length + 1);
         if (!Buffer) return BUFFER_INIT_ERROR;
 
-        strcpy(Buffer, NameBuffer[VARIABLENAME][x].Name);
+        strcpy(Buffer, PublicNameBuffer[VARIABLENAME][x].Name);
         strcat(Buffer, VARRESB);
 
-        if (!strcmp(TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 2], "u1"))
+        if (!strcmp(TokenBuffer[PublicNameBuffer[VARIABLENAME][x].Location + 2], "u1"))
             strcat(Buffer, "1");
-        else if (!strcmp(TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 2], "u2"))
+        else if (!strcmp(TokenBuffer[PublicNameBuffer[VARIABLENAME][x].Location + 2], "u2"))
             strcat(Buffer, "2");
-        else if (!strcmp(TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 2], "u4"))
+        else if (!strcmp(TokenBuffer[PublicNameBuffer[VARIABLENAME][x].Location + 2], "u4"))
             strcat(Buffer, "4");
 
         strcat(Buffer, END);
@@ -285,15 +128,15 @@ uint8_t initVariables()
     fwrite(TXTSection, 1, strlen(TXTSection), OutputFile);
 
     //Assign Values to Global Variables.
-    for (uint32_t x = 0; x < VariableCount; x++)
+    for (uint32_t x = 0; x < PublicVariableCount; x++)
     {
-        if (TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 3][0] == '=')
+        if (TokenBuffer[PublicNameBuffer[VARIABLENAME][x].Location + 3][0] == '=')
         {
             uint8_t MOV1[] = "mov [";
             uint8_t MOV2[] = "], ";
             uint8_t END[] = "\n\0";
 
-            uint8_t* Buffer = stringifyInstruction(5, MOV1, NameBuffer[VARIABLENAME][x].Name, MOV2, TokenBuffer[NameBuffer[VARIABLENAME][x].Location + 4], END);
+            uint8_t* Buffer = stringifyInstruction(5, MOV1, PublicNameBuffer[VARIABLENAME][x].Name, MOV2, TokenBuffer[PublicNameBuffer[VARIABLENAME][x].Location + 4], END);
             fwrite(Buffer, 1, strlen(Buffer), OutputFile);
             free(Buffer);
         }
@@ -302,7 +145,7 @@ uint8_t initVariables()
             uint8_t MOV1[] = "mov [";
             uint8_t MOV2[] = "], 0\n\0";
 
-            uint8_t* Buffer = stringifyInstruction(3, MOV1, NameBuffer[VARIABLENAME][x].Name, MOV2);
+            uint8_t* Buffer = stringifyInstruction(3, MOV1, PublicNameBuffer[VARIABLENAME][x].Name, MOV2);
             fwrite(Buffer, 1, strlen(Buffer), OutputFile);
             free(Buffer);
         }
@@ -379,7 +222,7 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
 
         Syntax:
             //Get Token Before Syntax.
-            if (Buffer[y - 1] == ' ' || Buffer[y - 1] == '(' || Buffer[y - 1] == '{' || Buffer[y - 1] == '\r' || Buffer[y - 1] == '\n' || Buffer[y - 1] == '\t') goto SyntaxStore;
+            if (Buffer[y - 1] == ' ' || Buffer[y - 1] == '(' || Buffer[y - 1] == ')' || Buffer[y - 1] == '{' || Buffer[y - 1] == '}' || Buffer[y - 1] == '\r' || Buffer[y - 1] == '\n' || Buffer[y - 1] == '\t') goto SyntaxStore;
 
             TokenBuffer[TokenCount] = malloc(y - x);
             if (!TokenBuffer[TokenCount]) return BUFFER_INIT_ERROR;
@@ -427,28 +270,28 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
     for (uint32_t x = 0; x < TokenCount; x++)
         printf("Name: %s Count: %d\n", TokenBuffer[x], x);
 
-    printf("\n\n\nTotal Count: %d\n", TokenCount - 1);
     return 0;
 }
 
 uint8_t sortNames()
 {
-    NameBuffer = malloc(sizeof(uint8_t*) * 2);
-    if (!NameBuffer) return BUFFER_INIT_ERROR;
+    PublicNameBuffer = malloc(sizeof(uint8_t*) * 2);
+    if (!PublicNameBuffer) return BUFFER_INIT_ERROR;
 
-    NameBuffer[FUNCTIONNAME] = malloc(sizeof(NameStruct) * 100);
-    if (!NameBuffer[FUNCTIONNAME]) return BUFFER_INIT_ERROR;
+    PublicNameBuffer[FUNCTIONNAME] = malloc(sizeof(NameStruct) * 100);
+    if (!PublicNameBuffer[FUNCTIONNAME]) return BUFFER_INIT_ERROR;
 
-    NameBuffer[VARIABLENAME] = malloc(sizeof(NameStruct) * 100);
-    if (!NameBuffer[VARIABLENAME]) return BUFFER_INIT_ERROR;
+    PublicNameBuffer[VARIABLENAME] = malloc(sizeof(NameStruct) * 100);
+    if (!PublicNameBuffer[VARIABLENAME]) return BUFFER_INIT_ERROR;
 
     //Declaring Scope.
     uint8_t Scope = 0;
 
     for (uint8_t x = 0; x < TokenCount; x++)
     {
-        if (TokenBuffer[x][0] == '{') ++Scope;
-        else if (TokenBuffer[x][0] == '}') --Scope;
+        if (TokenBuffer[x][0] == '{') Scope++;
+
+        if (TokenBuffer[x][0] == '}') Scope--;
 
         //Check if it is a function.
         if (!strcmp(TokenBuffer[x], "fn\0"))
@@ -461,14 +304,16 @@ uint8_t sortNames()
 
             NameStruct Function = { TokenBuffer[x + 1], x + 1 };
 
-            if (!FunctionCount) goto AddFunction;
+            if (!PublicFunctionCount) goto AddFunction;
             //Make sure function name doesn't exist elsewhere.
-            for (uint32_t y = 0; y < FunctionCount; y++)
-                if (!strcmp(NameBuffer[FUNCTIONNAME][y].Name, TokenBuffer[x + 1])) return NAME_ELSEWHERE;
+            for (uint32_t y = 0; y < PublicFunctionCount; y++)
+                if (!strcmp(PublicNameBuffer[FUNCTIONNAME][y].Name, TokenBuffer[x + 1])) return NAME_ELSEWHERE;
 
         AddFunction:
             //Add Function to List.
-            NameBuffer[FUNCTIONNAME][FunctionCount++] = Function;
+            PublicNameBuffer[FUNCTIONNAME][PublicFunctionCount++] = Function;
+            
+            while (TokenBuffer[x][0] != ')') x++;
             continue;
         }
 
@@ -500,15 +345,15 @@ uint8_t sortNames()
             if (!Check) return 4;
 
             NameStruct VariableName = { TokenBuffer[x - 1], x - 1 };
-            if (!VariableCount) goto AddVariable;
+            if (!PublicVariableCount) goto AddVariable;
 
             //Make sure Variable Name doesn't exist elsewhere.
-            for (uint32_t y = 0; y < FunctionCount; y++)
-                if (!strcmp(NameBuffer[VARIABLENAME][y].Name, TokenBuffer[x - 1])) return NAME_ELSEWHERE;
+            for (uint32_t y = 0; y < PublicVariableCount; y++)
+                if (!strcmp(PublicNameBuffer[VARIABLENAME][y].Name, TokenBuffer[x - 1])) return NAME_ELSEWHERE;
 
         AddVariable:
             //Add Variable to List.
-            NameBuffer[VARIABLENAME][VariableCount++] = VariableName;
+            PublicNameBuffer[VARIABLENAME][PublicVariableCount++] = VariableName;
             continue;
         }
     }
