@@ -1,18 +1,3 @@
-//TODO: Tokenize everything. (Done)
-//TODO: Check for Variables. (Done but does not have Scope)
-//TODO: Design Scope. (Mostly done)
-//TODO: Design Stack for local Variables. (Done)
-//TODO: Create AST (Need to add Precedence).
-
-//What to do:
-//Make String ASM code more modular. (Done).
-//Introduce Functions. (Done Mostly, need improve)
-//Design Precedence
-//Introduce Pointers.
-//Introduce Arrays.
-//Create a Standard.
-
-
 #include "Compile.h"
 #include "Arith.h"
 #include "Func.h"
@@ -74,51 +59,6 @@ FILE* OutputFile = 0;
 
 //Instruction related Functions.
 extern uint8_t* stringifyInstruction(uint8_t StringCount, ...);
-
-uint8_t ModifyStack(uint8_t Instruction, uint8_t* Value)
-{
-    uint8_t MOVE[] = "mov ";
-    uint8_t PUSH[] = "push ";
-    uint8_t POP[] = "pop ";
-
-    uint8_t REGISTERS[5][4] =
-    {
-        "eax",
-        "ebx",
-        "ecx",
-        "edx",
-        "esp"
-    };
-
-    uint8_t START[] = ", ";
-    uint8_t END[] = "\n\0";
-
-    uint8_t* String = 0;
-
-    switch (Instruction)
-    {
-    case 'P':
-    {
-        String = stringifyInstruction(5, MOVE, REGISTERS[0], START, Value, END);
-        fwrite(String, 1, strlen(String), OutputFile);
-        free(String);
-
-        String = stringifyInstruction(3, PUSH, REGISTERS[0], END);
-        fwrite(String, 1, strlen(String), OutputFile);
-        free(String);
-        break;
-    }
-
-    case 'p':
-    {
-        String = stringifyInstruction(3, POP, REGISTERS[0], END);
-        fwrite(String, 1, strlen(String), OutputFile);
-        free(String);
-        break;
-    }
-    }
-    return 0;
-}
 
 //Initialisation related.
 uint8_t initFunctions()
