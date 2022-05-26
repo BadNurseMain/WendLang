@@ -21,7 +21,6 @@
 //Function Error Codes.
 #define RETURN_TYPE_INVALID (uint8_t) 6
 
-
 //STD Error Codes.
 #define MALLOC_NO_MEM (uint8_t)7
 
@@ -151,6 +150,12 @@ uint8_t makeFunction(uint32_t Location)
                 if (ReturnType)
                     if (ReturnType != RETURN_TYPE_VAL) return RETURN_TYPE_INVALID;
 
+                //Clearing Function Stack.                
+                String = "pop eax \n\0";
+                for(uint32_t x = 0; x < VariableCount; x++)
+                    fwrite(String, 1, strlen(String), OutputFile);
+
+                //Storing Return Value.
                 String = stringifyInstruction(5, "mov eax, ", TokenBuffer[LoopOffset + 1], "\n\0", "ret ", "\n\0");
                 fwrite(String, 1, strlen(String), OutputFile);
                 free(String);
@@ -163,6 +168,12 @@ uint8_t makeFunction(uint32_t Location)
             if (ReturnType)
                 if (ReturnType != RETURN_TYPE_VOID) return RETURN_TYPE_INVALID;
 
+            //Clearing Function Stack.                
+            String = "pop eax \n\0";
+            for(uint32_t x = 0; x < VariableCount; x++)
+                fwrite(String, 1, strlen(String), OutputFile);
+
+            //Returning.
             String = stringifyInstruction(2, TokenBuffer[LoopOffset], "\n\0");
             fwrite(String, 1, strlen(String), OutputFile);
             free(String);
@@ -175,10 +186,8 @@ uint8_t makeFunction(uint32_t Location)
         LoopOffset++;
     } while (Scope && TokenBuffer[LoopOffset][0] != '}');
 
-
     free(Variables);
-    
-    fwrite("\n\n\n\n\0", 1, strlen("\n\n\n\n\0"), OutputFile);
+    fwrite("\n\n\0", 1, strlen("\n\n\0"), OutputFile);
     return 0;
 }
 
