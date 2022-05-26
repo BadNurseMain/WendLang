@@ -298,12 +298,6 @@ uint8_t writeOperation(uint32_t OperatorLocation, OrderStruct** Orders, uint8_t 
     uint8_t* String = 0;
     uint32_t OperationType = getOperator(OperatorLocation), VariableLocation = 0;
 
-    if (!strcmp(TokenBuffer[OperatorLocation + 1], "Toes"))
-    {
-        volatile int TempValue = 0;
-
-    }
-
     //Has Brackets Before.
     if (TokenBuffer[OperatorLocation - 1][0] == ')')
     {
@@ -366,7 +360,7 @@ initValueTwoStart:
         uint8_t StackOffset[12] = { 0 };
         sprintf(StackOffset, "%d", LocalVarBuffer[VariableLocation - 1].StackOffset);
 
-        String = stringifyInstruction(7, MOVE, REGISTERS[3][0], VARSTART, REGISTERS[3][4], PLUS, StackOffset, VAREND);
+        String = stringifyInstruction(7, MOVE, REGISTERS[3][3], VARSTART, REGISTERS[3][4], PLUS, StackOffset, VAREND);
         fwrite(String, 1, strlen(String), OutputFile);
         free(String);
         goto beginCalculation;
@@ -514,7 +508,7 @@ uint32_t complexArith(uint32_t StartLocation, LocalNameStruct* Variables, uint32
         if (!strcmp(TokenBuffer[StartLocation - 1], Variables[x].Name))
         {
             uint8_t TempStack[12] = {0};
-            sprintf(TempStack, "%d", Variables[x].StackOffset * 4);
+            sprintf(TempStack, "%d", (Variables[VariableCount - 1].StackOffset * 4 ) - (Variables[x].StackOffset * 4));
 
             String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[3][4], PLUS, TempStack, NEWVAREND, REGISTERS[3][0], END);
             fwrite(String, 1, strlen(String), OutputFile);
