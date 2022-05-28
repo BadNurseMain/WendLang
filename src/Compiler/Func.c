@@ -48,8 +48,36 @@ extern uint8_t** TokenBuffer;
 extern uint32_t TokenCount;
 
 //Externs.
-extern uint8_t ModifyStack(uint8_t Instruction, uint8_t* Value);
 extern uint8_t* stringifyInstruction(uint8_t StringCount, ...);
+
+void printVar(LocalNameStruct* Variables, uint32_t VariableCount)
+{
+    for (uint32_t x = 0; x < VariableCount; x++)
+        printf("Name: %s, Stack:%u \n", Variables[x].Name, Variables[x].StackOffset);
+
+    return;
+}
+
+inline uint16_t getParamCount(uint32_t Location)
+{
+    if (TokenBuffer[++Location][0] != '(') return 0;
+
+    uint16_t Count = 0;
+
+    do
+    {
+        if(TokenBuffer[Location][0] == ':')
+        {
+            Count++;
+            Location += 2;
+            continue;
+        }
+
+        Location++;
+    } while (TokenBuffer[Location][0] != ')');
+
+    return Count;
+}
 
 uint8_t makeFunction(uint32_t Location)
 {
@@ -90,9 +118,11 @@ uint8_t makeFunction(uint32_t Location)
 
             LocalNameStruct TempStruct = { 0 };
             TempStruct.Name = TokenBuffer[LoopOffset];
-            TempStruct.StackOffset = 4 * StackOffset++;
-
+            TempStruct.StackOffset = (4 * StackOffset++);
             Variables[VariableCount++] = TempStruct;
+            
+            //Used for Clearing Memory After Function.
+            ParameterCount++;
             LoopOffset += 3;
             continue;
         }
@@ -102,6 +132,15 @@ uint8_t makeFunction(uint32_t Location)
 
     LoopOffset += 2;
 
+    //Specifically for Function Calls.
+    LocalNameStruct TempStruct = { 0 };
+    TempStruct.Name = TokenBuffer[Location - 1];
+    TempStruct.StackOffset = StackOffset++ * 4;
+    Variables[VariableCount++] = TempStruct;
+
+    printVar(Variables, VariableCount);
+    printf("Total Params: %u \n", getParamCount(Location));
+
     do
     {
         //Changing Existing Variable.
@@ -110,7 +149,6 @@ uint8_t makeFunction(uint32_t Location)
             uint8_t Type = 0;
             if (TokenBuffer[LoopOffset - 2][0] == ':')
             {
-                LocalNameStruct TempStruct = { 0 };
                 TempStruct.Name = TokenBuffer[LoopOffset - 3];
                 TempStruct.StackOffset = 4 * StackOffset++;
 
@@ -152,11 +190,11 @@ uint8_t makeFunction(uint32_t Location)
 
                 //Clearing Function Stack.                
                 String = "pop eax \n\0";
-                for(uint32_t x = 0; x < VariableCount; x++)
+                for (uint32_t x = VariableCount; x > ParameterCount; x--)
                     fwrite(String, 1, strlen(String), OutputFile);
 
                 //Storing Return Value.
-                String = stringifyInstruction(5, "mov eax, ", TokenBuffer[LoopOffset + 1], "\n\0", "ret ", "\n\0");
+                String = stringifyInstruction(5, "mov ebx, ", TokenBuffer[LoopOffset + 1], "\n\0", "ret ", "\n\0");
                 fwrite(String, 1, strlen(String), OutputFile);
                 free(String);
 
@@ -170,7 +208,7 @@ uint8_t makeFunction(uint32_t Location)
 
             //Clearing Function Stack.                
             String = "pop eax \n\0";
-            for(uint32_t x = 0; x < VariableCount; x++)
+            for (uint32_t x = 0; x < VariableCount; x++)
                 fwrite(String, 1, strlen(String), OutputFile);
 
             //Returning.
@@ -191,8 +229,17 @@ uint8_t makeFunction(uint32_t Location)
     return 0;
 }
 
-uint8_t callFunction(uint8_t ReturnRegister)
+uint8_t callFunction(uint8_t* FunctionName, uint8_t ReturnRegister)
 {
+    //Checking for Valid Function.
+    for(uint32_t x = 0; x < PublicFunctionCount; x++)
+        if(!strcmp(FunctionName, PublicNameBuffer[FUNCTIONNAME][x].Name))
+        {
+            
+        }
 
+    uint8_t* String = stringifyInstruction(3, "call ", FunctionName, "\n\0");
+    fwrite(String, 1, strlen(String), OutputFile);
+    free(String);
     return 0;
 }
