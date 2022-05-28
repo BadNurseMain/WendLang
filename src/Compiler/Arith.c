@@ -1,5 +1,6 @@
 #include "Arith.h"
 #include "ArithGlobals.h"
+#include "Func.h"
 
 //----------------------------------------------------------- INIT ------------------------------------------------------
 
@@ -214,7 +215,7 @@ uint8_t getTempValue(uint8_t ValueNumber, OrderStruct** Orders, uint32_t OrderCo
                 return 0;
             }
     }
-    
+
     return 1;
 }
 
@@ -276,7 +277,7 @@ uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarC
 
     //Assigning the Values from the Returns.
 assignReturn:
-    if(Type == 1)
+    if (Type == 1)
     {
         String = stringifyInstruction(3, PUSH, REGISTERS[3][0], END);
         fwrite(String, 1, strlen(String), OutputFile);
@@ -321,7 +322,7 @@ uint8_t writeOperation(uint32_t OperatorLocation, OrderStruct** Orders, uint8_t 
         //Stringify Stack Offset.
         uint8_t StackOffset[12] = { 0 };
         sprintf(StackOffset, "%d", LocalVarBuffer[VariableLocation - 1].StackOffset);
-
+        
         String = stringifyInstruction(7, MOVE, REGISTERS[3][0], VARSTART, REGISTERS[3][4], PLUS, StackOffset, VAREND);
         fwrite(String, 1, strlen(String), OutputFile);
         free(String);
@@ -356,6 +357,7 @@ initValueTwoStart:
     //Is a Local Variable.
     if (VariableLocation)
     {
+
         //Stringify Stack Offset.
         uint8_t StackOffset[12] = { 0 };
         sprintf(StackOffset, "%d", LocalVarBuffer[VariableLocation - 1].StackOffset);
@@ -507,8 +509,8 @@ uint32_t complexArith(uint32_t StartLocation, LocalNameStruct* Variables, uint32
     for (uint32_t x = 0; x < VariableCount; x++)
         if (!strcmp(TokenBuffer[StartLocation - 1], Variables[x].Name))
         {
-            uint8_t TempStack[12] = {0};
-            sprintf(TempStack, "%d", (Variables[VariableCount - 1].StackOffset * 4 ) - (Variables[x].StackOffset * 4));
+            uint8_t TempStack[12] = { 0 };
+            sprintf(TempStack, "%d", (Variables[VariableCount - 1].StackOffset * 4) - (Variables[x].StackOffset * 4));
 
             String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[3][4], PLUS, TempStack, NEWVAREND, REGISTERS[3][0], END);
             fwrite(String, 1, strlen(String), OutputFile);
