@@ -200,6 +200,8 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
             case '(': goto Syntax;
             case ')': goto Syntax;
 
+            case ',': goto Syntax;
+
             case '{': goto Syntax;
             case '}': goto Syntax;
 
@@ -214,7 +216,7 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
             case '^': goto Syntax;
             case '|': goto Syntax;
 
-                //Declaration.
+            //Declaration.
             case ';': goto Syntax;
             }
             y++;
@@ -312,7 +314,7 @@ uint8_t sortNames()
         AddFunction:
             //Add Function to List.
             PublicNameBuffer[FUNCTIONNAME][PublicFunctionCount++] = Function;
-            
+
             while (TokenBuffer[x][0] != ')') x++;
             continue;
         }
