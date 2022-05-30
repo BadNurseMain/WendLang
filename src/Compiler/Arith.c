@@ -23,7 +23,7 @@
 #endif
 
 
-#define ORDER_SIZE (uint8_t)12
+#define ORDER_SIZE (uint8_t)20
 #define OPERATOR_ERROR (uint8_t) ~1
 
 
@@ -60,9 +60,19 @@ enum PrecedenceTable
     Modulus = 2,
     Addition = 3,
     Subtraction = 4,
-    BitShift = 5,
-    Relational = 6,
-    Equals = 7
+    
+    //Bitwise.
+    BitwiseAND = 5,
+    BitwiseOR = 6,
+    BitwiseXOR = 7,
+    
+    BitwiseSHL = 8,
+    BitwiseSHR = 9,
+    
+    //Control flow.
+    LessThan = 10,
+    GreaterThan = 11,
+    Equality = 12
 };
 
 //TODO: Fix getPosition so that its actually useful
@@ -150,6 +160,26 @@ OrderStruct* getOrder(uint32_t* StartLocation)
             Orders[Division].Locations[Orders[Division].Count++] = Loop;
         }
 
+        if (TokenBuffer[Loop][0] == '|')
+        {
+
+            if (!Orders[BitwiseOR].Count)
+                Orders[BitwiseOR].Locations = calloc(10, sizeof(uint32_t));
+
+            if (!Orders[BitwiseOR].Locations) return 0;
+            Orders[BitwiseOR].Locations[Orders[BitwiseOR].Count++] = Loop;
+        }
+
+        if (TokenBuffer[Loop][0] == '&')
+        {
+
+            if (!Orders[BitwiseAND].Count)
+                Orders[BitwiseAND].Locations = calloc(10, sizeof(uint32_t));
+
+            if (!Orders[BitwiseAND].Locations) return 0;
+            Orders[BitwiseAND].Locations[Orders[BitwiseAND].Count++] = Loop;
+        }
+
         ++Loop;
     } while (TokenBuffer[Loop][0] != ')' && TokenBuffer[Loop][0] != ';' && TokenBuffer[Loop][0] != '(');
 
@@ -162,10 +192,27 @@ uint8_t getOperator(uint32_t OperatorLocation)
 {
     switch (TokenBuffer[OperatorLocation][0])
     {
-    case '*': return Multiply;
-    case '/': return Division;
-    case '+': return Addition;
-    case '-': return Subtraction;
+        case '*': return Multiply;
+        case '/': return Division;
+        case '+': return Addition;
+        case '-': return Subtraction;
+        
+        //Bitwise.
+        case '&': return BitwiseAND;
+        case '|': return BitwiseOR;
+
+        //Bit Shifting.
+        case '<':
+        {
+            if (TokenBuffer[OperatorLocation][1] == '<') return BitwiseSHL;
+            else return GreaterThan;
+        }
+
+        case '>':
+        {
+            if (TokenBuffer[OperatorLocation][1] == '>') return BitwiseSHR;
+            else return LessThan;
+        }
     }
 
     return OPERATOR_ERROR;
@@ -180,14 +227,6 @@ uint32_t getTempOffset(OrderStruct** Orders, uint32_t OrderCount, uint32_t Posit
             for (uint32_t z = 0; z < Orders[x][y].Count; z++)
                 if (Position == Orders[x][y].Locations[z]) return ++Value;
                 else ++Value;
-
-    return 0;
-}
-
-uint32_t getLocalVariable(uint32_t Location, LocalNameStruct* LocalVarBuffer, uint32_t LocalVarCount)
-{
-    for (uint32_t x = 0; x < LocalVarCount; x++)
-        if (!strcmp(TokenBuffer[Location], LocalVarBuffer[x].Name)) return x + 1;
 
     return 0;
 }
@@ -218,6 +257,33 @@ uint8_t getTempValue(uint8_t ValueNumber, OrderStruct** Orders, uint32_t OrderCo
 
     return 1;
 }
+
+
+
+uint32_t getLocalVariable(uint32_t Location, LocalNameStruct* LocalVarBuffer, uint32_t LocalVarCount)
+{
+    for (uint32_t x = 0; x < LocalVarCount; x++)
+        if (!strcmp(TokenBuffer[Location], LocalVarBuffer[x].Name)) return x + 1;
+
+    return 0;
+}
+
+uint16_t getFunctionParams(uint32_t Location)
+{
+    if (TokenBuffer[++Location][0] != '(') return 0;
+
+    uint16_t Count = 0;
+
+    while (TokenBuffer[Location][0] != ')')
+    {
+        Count++;
+        Location+= 2;
+    }
+
+    return Count;
+}
+
+
 
 uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarCount, uint8_t Type)
 {
@@ -272,6 +338,29 @@ uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarC
         free(String);
         goto assignReturn;
     }
+
+    //Is a Function.
+    for (uint32_t x = 0; x < PublicFunctionCount; x++)
+        if (!strcmp(TokenBuffer[StartLocation + 1], PublicNameBuffer[FUNCTIONNAME][x].Name))
+        {
+            if (TokenBuffer[StartLocation + 2][0] != '(') return 1;
+            uint16_t ParamCount = getFunctionParams(StartLocation + 1);
+
+            if (ParamCount)
+            {
+                uint8_t** Buffer = malloc(sizeof(uint8_t*) * ParamCount);
+                if (!Buffer) return 1;
+
+                for (uint16_t y = 0; y < ParamCount; y++)
+                    Buffer[y] = TokenBuffer[StartLocation + 3 + (y * 2)];
+
+                callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, ParamCount, Buffer);
+                goto assignReturn;
+            }
+
+            callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, 0, 0);
+            goto assignReturn;
+        }
 
     return 1;
 
@@ -368,7 +457,28 @@ initValueTwoStart:
         goto beginCalculation;
     }
 
-    VariableLocation = 0;
+    //Is a Function.
+    for (uint32_t x = 0; x < PublicFunctionCount; x++)
+        if (!strcmp(TokenBuffer[OperatorLocation + 1], PublicNameBuffer[FUNCTIONNAME][x].Name))
+        {
+            if (TokenBuffer[OperatorLocation + 2][0] != '(') return 1;
+            uint16_t ParamCount = getFunctionParams(OperatorLocation + 1);
+
+            if (ParamCount)
+            {
+                uint8_t** Buffer = malloc(sizeof(uint8_t*) * ParamCount);
+                if (!Buffer) return 1;
+
+                for (uint16_t y = 0; y < ParamCount; y++)
+                    Buffer[y] = TokenBuffer[OperatorLocation + 3 + (y * 2)];
+                
+                callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 3, ParamCount, Buffer);
+                goto beginCalculation;
+            }
+            
+            callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 3, 0, 0);
+            goto beginCalculation;
+        }
 
     //Just a constant.
     String = stringifyInstruction(5, MOVE, REGISTERS[3][3], START, TokenBuffer[OperatorLocation + 1], END);
@@ -404,6 +514,17 @@ uint32_t complexArith(uint32_t StartLocation, LocalNameStruct* Variables, uint32
     uint8_t* String = 0;
 
     //Not a Complex Equation.
+    for (uint32_t x = 0; x < PublicFunctionCount; x++)
+        if(!strcmp(TokenBuffer[StartLocation + 1], PublicNameBuffer[FUNCTIONNAME][x].Name))
+        {
+            if (isNotComplex(StartLocation, Variables, VariableCount, OptionalParam)) return 1;
+            else
+            {
+                
+                volatile uint32_t Value = getFunctionParams(StartLocation + 1), FUNCVALUE = StartLocation + getFunctionParams(StartLocation + 1) * 2 + 4;
+                return StartLocation + getFunctionParams(StartLocation + 1) * 2 + 4;
+            }
+        }
     if (TokenBuffer[StartLocation + 2][0] == ';')
     {
         if (isNotComplex(StartLocation, Variables, VariableCount, OptionalParam)) return 1;
@@ -495,8 +616,6 @@ uint32_t complexArith(uint32_t StartLocation, LocalNameStruct* Variables, uint32
 
         MaxCount++;
     } while (PrecedenceMax || TokenBuffer[MaxCount][0] != ';');
-
-
 
     if (OptionalParam == 1)
     {
