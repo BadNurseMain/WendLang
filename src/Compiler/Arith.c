@@ -81,6 +81,9 @@ enum PrecedenceTable
 //TODO: Write Cases for Other Operators, including
 //      bitwise, functions and pointers.
 
+extern uint16_t getFunctionParams(uint32_t Location);
+
+
 //VA For Creating ASM File.
 uint8_t* stringifyInstruction(uint8_t StringCount, ...)
 {
@@ -258,8 +261,6 @@ uint8_t getTempValue(uint8_t ValueNumber, OrderStruct** Orders, uint32_t OrderCo
     return 1;
 }
 
-
-
 uint32_t getLocalVariable(uint32_t Location, LocalNameStruct* LocalVarBuffer, uint32_t LocalVarCount)
 {
     for (uint32_t x = 0; x < LocalVarCount; x++)
@@ -267,23 +268,6 @@ uint32_t getLocalVariable(uint32_t Location, LocalNameStruct* LocalVarBuffer, ui
 
     return 0;
 }
-
-uint16_t getFunctionParams(uint32_t Location)
-{
-    if (TokenBuffer[++Location][0] != '(') return 0;
-
-    uint16_t Count = 0;
-
-    while (TokenBuffer[Location][0] != ')')
-    {
-        Count++;
-        Location+= 2;
-    }
-
-    return Count;
-}
-
-
 
 uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarCount, uint8_t Type)
 {
@@ -354,11 +338,11 @@ uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarC
                 for (uint16_t y = 0; y < ParamCount; y++)
                     Buffer[y] = TokenBuffer[StartLocation + 3 + (y * 2)];
 
-                callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, ParamCount, Buffer);
+                callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 1, ParamCount, Buffer);
                 goto assignReturn;
             }
 
-            callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, 0, 0);
+            callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 1, 0, 0);
             goto assignReturn;
         }
 
@@ -472,11 +456,11 @@ initValueTwoStart:
                 for (uint16_t y = 0; y < ParamCount; y++)
                     Buffer[y] = TokenBuffer[OperatorLocation + 3 + (y * 2)];
                 
-                callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 3, ParamCount, Buffer);
+                callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 4, ParamCount, Buffer);
                 goto beginCalculation;
             }
             
-            callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 3, 0, 0);
+            callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 4, 0, 0);
             goto beginCalculation;
         }
 
@@ -518,13 +502,9 @@ uint32_t complexArith(uint32_t StartLocation, LocalNameStruct* Variables, uint32
         if(!strcmp(TokenBuffer[StartLocation + 1], PublicNameBuffer[FUNCTIONNAME][x].Name))
         {
             if (isNotComplex(StartLocation, Variables, VariableCount, OptionalParam)) return 1;
-            else
-            {
-                
-                volatile uint32_t Value = getFunctionParams(StartLocation + 1), FUNCVALUE = StartLocation + getFunctionParams(StartLocation + 1) * 2 + 4;
-                return StartLocation + getFunctionParams(StartLocation + 1) * 2 + 4;
-            }
+            else return StartLocation + getFunctionParams(StartLocation + 1) * 2 + 4;
         }
+
     if (TokenBuffer[StartLocation + 2][0] == ';')
     {
         if (isNotComplex(StartLocation, Variables, VariableCount, OptionalParam)) return 1;
