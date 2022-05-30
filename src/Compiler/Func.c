@@ -17,12 +17,12 @@
 #define BUFFER_INIT_ERROR (uint8_t)4
 #define NO_VALID_VARIABLE (uint8_t)5
 
-
 //Function Error Codes.
-#define RETURN_TYPE_INVALID (uint8_t) 6
+#define FN_RETURN_INVAL (uint8_t) 0xA1
+#define FN_LACK_PARAMS (uint8_t) 0xA2
 
 //STD Error Codes.
-#define MALLOC_NO_MEM (uint8_t)7
+#define MALLOC_NO_MEM (uint8_t)8
 
 #endif
 
@@ -186,7 +186,7 @@ uint8_t makeFunction(uint32_t Location)
             if (TokenBuffer[LoopOffset + 1][0] >= '0' && TokenBuffer[LoopOffset + 1][0] <= '9')
             {
                 if (ReturnType)
-                    if (ReturnType != RETURN_TYPE_VAL) return RETURN_TYPE_INVALID;
+                    if (ReturnType != RETURN_TYPE_VAL) return FN_RETURN_INVAL;
 
                 //Clearing Function Stack.                
                 String = "pop eax \n\0";
@@ -204,7 +204,7 @@ uint8_t makeFunction(uint32_t Location)
             }
 
             if (ReturnType)
-                if (ReturnType != RETURN_TYPE_VOID) return RETURN_TYPE_INVALID;
+                if (ReturnType != RETURN_TYPE_VOID) return FN_RETURN_INVAL;
 
             //Clearing Function Stack.                
             String = "pop eax \n\0";
@@ -229,17 +229,48 @@ uint8_t makeFunction(uint32_t Location)
     return 0;
 }
 
-uint8_t callFunction(uint8_t* FunctionName, uint8_t ReturnRegister)
+uint8_t callFunction(uint8_t* FunctionName, uint8_t ReturnRegister, uint16_t ParameterCount, uint8_t** Buffer)
 {
+    uint8_t* String = 0;
+
     //Checking for Valid Function.
     for(uint32_t x = 0; x < PublicFunctionCount; x++)
         if(!strcmp(FunctionName, PublicNameBuffer[FUNCTIONNAME][x].Name))
         {
-            
+            //Checking Parameter Count.
+            uint32_t ParamOffset = getParamCount(PublicNameBuffer[FUNCTIONNAME][x].Location);
+            if (ParamOffset != ParameterCount) return FN_LACK_PARAMS;
+
+            for(uint16_t y = 0; y < ParameterCount; y++)
+            {
+                String = stringifyInstruction(3, "mov esi, ", Buffer[y], "\n\0");
+                fwrite(String, 1, strlen(String), OutputFile);
+                free(String);
+
+                String = stringifyInstruction(2, "push esi", "\n\0");
+                fwrite(String, 1, strlen(String), OutputFile);
+                free(String);
+            }
+
+            goto StartCall;
         }
 
-    uint8_t* String = stringifyInstruction(3, "call ", FunctionName, "\n\0");
+StartCall:
+    String = stringifyInstruction(3, "call ", FunctionName, "\n\0");
     fwrite(String, 1, strlen(String), OutputFile);
+    free(String);
+
+    extern uint8_t REGISTERS[4][7][4];
+    
+    String = stringifyInstruction(4, "mov ", REGISTERS[3][ReturnRegister], ", ebx", "\n\0");
+    fwrite(String, 1, strlen(String), OutputFile);
+    free(String);
+
+    String = stringifyInstruction(2, "pop esi", "\n\0");
+    //Clearing up Stack from Previous Function.
+    for (uint16_t x = 0; x < ParameterCount; x++)
+        fwrite(String, 1, strlen(String), OutputFile);
+    
     free(String);
     return 0;
 }
