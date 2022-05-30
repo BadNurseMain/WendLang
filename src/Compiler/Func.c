@@ -17,10 +17,6 @@
 #define BUFFER_INIT_ERROR (uint8_t)4
 #define NO_VALID_VARIABLE (uint8_t)5
 
-//Function Error Codes.
-#define FN_RETURN_INVAL (uint8_t) 0xA1
-#define FN_LACK_PARAMS (uint8_t) 0xA2
-
 //STD Error Codes.
 #define MALLOC_NO_MEM (uint8_t)8
 
@@ -75,6 +71,22 @@ inline uint16_t getParamCount(uint32_t Location)
 
         Location++;
     } while (TokenBuffer[Location][0] != ')');
+
+    return Count;
+}
+
+uint16_t getFunctionParams(uint32_t Location)
+{
+    if (TokenBuffer[++Location][0] != '(') return FN_CALL_INVALID;
+    if (TokenBuffer[Location + 1][0] == ')') return 0;
+
+    uint16_t Count = 0;
+
+    while (TokenBuffer[Location][0] != ')')
+    {
+        Count++;
+        Location += 2;
+    }
 
     return Count;
 }
@@ -221,6 +233,38 @@ uint8_t makeFunction(uint32_t Location)
             continue;
         }
 
+        if (TokenBuffer[LoopOffset + 1][0] == '(')
+        {
+            for (uint32_t x = 0; x < PublicFunctionCount; x++)
+            {
+                if (!strcmp(TokenBuffer[LoopOffset], PublicNameBuffer[FUNCTIONNAME][x].Name))
+                {
+                    uint16_t ParamCount = getFunctionParams(LoopOffset);
+
+                    if (ParamCount)
+                    {
+                        uint8_t** Buffer = malloc(sizeof(uint8_t*) * ParamCount);
+                        if (!Buffer) return 1;
+
+                        for (uint16_t y = 0; y < ParamCount; y++)
+                            Buffer[y] = TokenBuffer[LoopOffset + 3 + (y * 2)];
+
+                        callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, ParamCount, Buffer);
+
+                        LoopOffset = LoopOffset + getFunctionParams(LoopOffset) * 2 + 4;
+                        continue;
+                    }
+
+                    callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, 0, 0);
+                    LoopOffset += 4;
+                    continue;
+                }
+            }
+
+            return FN_CALL_UNKNOWN;
+        }
+
+
         LoopOffset++;
     } while (Scope && TokenBuffer[LoopOffset][0] != '}');
 
@@ -239,6 +283,7 @@ uint8_t callFunction(uint8_t* FunctionName, uint8_t ReturnRegister, uint16_t Par
         {
             //Checking Parameter Count.
             uint32_t ParamOffset = getParamCount(PublicNameBuffer[FUNCTIONNAME][x].Location);
+            if (ParamOffset == FN_CALL_INVALID) return FN_CALL_INVALID;
             if (ParamOffset != ParameterCount) return FN_LACK_PARAMS;
 
             for(uint16_t y = 0; y < ParameterCount; y++)
@@ -260,11 +305,14 @@ StartCall:
     fwrite(String, 1, strlen(String), OutputFile);
     free(String);
 
-    extern uint8_t REGISTERS[4][7][4];
-    
-    String = stringifyInstruction(4, "mov ", REGISTERS[3][ReturnRegister], ", ebx", "\n\0");
-    fwrite(String, 1, strlen(String), OutputFile);
-    free(String);
+    if(ReturnRegister)
+    {
+        extern uint8_t REGISTERS[4][7][4];
+
+        String = stringifyInstruction(4, "mov ", REGISTERS[3][ReturnRegister - 1], ", ebx", "\n\0");
+        fwrite(String, 1, strlen(String), OutputFile);
+        free(String);
+    }
 
     String = stringifyInstruction(2, "pop esi", "\n\0");
     //Clearing up Stack from Previous Function.
