@@ -46,6 +46,21 @@ extern uint32_t TokenCount;
 //Externs.
 extern uint8_t* stringifyInstruction(uint8_t StringCount, ...);
 
+//Used later for Complex Arith.
+uint8_t getVariableSize(const uint8_t* Type)
+{
+    if (!strcmp(Type, "u4")) return 4;
+    else if (!strcmp(Type, "s4")) return 4 + (1 << 7);
+
+    if (!strcmp(Type, "u2")) return 2;
+    else if (!strcmp(Type, "s2")) return 2 + (1 << 7);
+
+    if (!strcmp(Type, "u1")) return 1;
+    else if (!strcmp(Type, "s1")) return 1 + (1 << 7);
+
+    return 0;
+}
+
 void printVar(LocalNameStruct* Variables, uint32_t VariableCount)
 {
     for (uint32_t x = 0; x < VariableCount; x++)
@@ -93,6 +108,11 @@ uint16_t getFunctionParams(uint32_t Location)
 
 uint8_t makeFunction(uint32_t Location)
 {
+    if(!strcmp(TokenBuffer[Location], "main"))
+    {
+        volatile int TempValue = 0;
+    }
+
     uint8_t* String = 0;
 
     uint32_t ParameterCount = 0, VariableCount = 0, StackOffset = 0, Scope = 1;
@@ -128,9 +148,15 @@ uint8_t makeFunction(uint32_t Location)
                 Variables = TempBuffer;
             }
 
+            //Setting up Initial Info.
             LocalNameStruct TempStruct = { 0 };
             TempStruct.Name = TokenBuffer[LoopOffset];
             TempStruct.StackOffset = (4 * StackOffset++);
+            
+            //Getting Size.
+            TempStruct.Type = getVariableSize(TokenBuffer[LoopOffset + 2]);
+            if (!TempStruct.Type) return ARTH_INVALID_SIZE;
+
             Variables[VariableCount++] = TempStruct;
             
             //Used for Clearing Memory After Function.
@@ -163,6 +189,10 @@ uint8_t makeFunction(uint32_t Location)
             {
                 TempStruct.Name = TokenBuffer[LoopOffset - 3];
                 TempStruct.StackOffset = 4 * StackOffset++;
+
+                //Getting Size.
+                TempStruct.Type = getVariableSize(TokenBuffer[LoopOffset - 1]);
+                if (!TempStruct.Type) return ARTH_INVALID_SIZE;
 
                 Variables[VariableCount++] = TempStruct;
                 Type = 1;
@@ -250,7 +280,8 @@ uint8_t makeFunction(uint32_t Location)
                             Buffer[y] = TokenBuffer[LoopOffset + 3 + (y * 2)];
 
                         callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, ParamCount, Buffer);
-
+                        free(Buffer);
+                        
                         LoopOffset = LoopOffset + getFunctionParams(LoopOffset) * 2 + 4;
                         continue;
                     }
@@ -264,9 +295,22 @@ uint8_t makeFunction(uint32_t Location)
             return FN_CALL_UNKNOWN;
         }
 
-
         LoopOffset++;
     } while (Scope && TokenBuffer[LoopOffset][0] != '}');
+    
+    //If No Return Previous.
+    if(!ReturnType)
+    {
+        //Clearing Function Stack.                
+        String = "pop eax \n\0";
+        for (uint32_t x = VariableCount; x > ParameterCount; x--)
+            fwrite(String, 1, strlen(String), OutputFile);
+
+        //Returning.
+        String = stringifyInstruction(2, "ret", "\n\0");
+        fwrite(String, 1, strlen(String), OutputFile);
+        free(String);
+    }
 
     free(Variables);
     fwrite("\n\n\0", 1, strlen("\n\n\0"), OutputFile);
