@@ -19,11 +19,13 @@
 
 */
 
+#define ARTH_INVALID_SIZE (uint8_t) 0xC0
+#define ARTH_UNKNOWN_VAR (uint8_t) 0xC1
+
 typedef struct
 {
     uint8_t* Name;
-    uint8_t Scope[16];
-    uint8_t ScopeCount;
+    uint8_t Type;
     uint32_t StackOffset;
 } LocalNameStruct;
 
