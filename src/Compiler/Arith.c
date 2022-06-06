@@ -75,14 +75,10 @@ enum PrecedenceTable
     Equality = 12
 };
 
-//TODO: Fix getPosition so that its actually useful
-//      which in turn will fix Offsetting.
-
 //TODO: Write Cases for Other Operators, including
-//      bitwise, functions and pointers.
+//      bitwise, functions and pointers.            (Done bitwise and function calls.)
 
 extern uint16_t getFunctionParams(uint32_t Location);
-
 
 //VA For Creating ASM File.
 uint8_t* stringifyInstruction(uint8_t StringCount, ...)
@@ -367,10 +363,11 @@ assignReturn:
     return 0;
 }
 
-uint8_t writeOperation(uint32_t OperatorLocation, OrderStruct** Orders, uint8_t OrdersOffset, uint32_t OrderCount, LocalNameStruct* LocalVarBuffer, uint32_t LocalVarCount)
+uint8_t writeOperation(uint32_t OperatorLocation, OrderStruct** Orders, uint32_t OrderCount, LocalNameStruct* LocalVarBuffer, uint32_t LocalVarCount, uint8_t Type)
 {
     uint8_t* String = 0;
     uint32_t OperationType = getOperator(OperatorLocation), VariableLocation = 0;
+    
 
     //Has Brackets Before.
     if (TokenBuffer[OperatorLocation - 1][0] == ')')
@@ -405,7 +402,7 @@ uint8_t writeOperation(uint32_t OperatorLocation, OrderStruct** Orders, uint8_t 
     VariableLocation = 0;
 
     //Just a constant.
-    String = stringifyInstruction(5, MOVE, REGISTERS[3][0], START, TokenBuffer[OperatorLocation - 1], END);
+    String = stringifyInstruction(5, MOVE, REGISTERS[Type][0], START, TokenBuffer[OperatorLocation - 1], END);
     fwrite(String, strlen(String), 1, OutputFile);
     free(String);
 
@@ -465,20 +462,20 @@ initValueTwoStart:
         }
 
     //Just a constant.
-    String = stringifyInstruction(5, MOVE, REGISTERS[3][3], START, TokenBuffer[OperatorLocation + 1], END);
+    String = stringifyInstruction(5, MOVE, REGISTERS[Type][3], START, TokenBuffer[OperatorLocation + 1], END);
     fwrite(String, strlen(String), 1, OutputFile);
     free(String);
 
 beginCalculation:
     if (OperationType == Multiply || OperationType == Division)
     {
-        String = stringifyInstruction(3, INSTRUCTIONS[OperationType], REGISTERS[3][3], END);
+        String = stringifyInstruction(3, INSTRUCTIONS[OperationType], REGISTERS[Type][3], END);
         fwrite(String, strlen(String), 1, OutputFile);
         free(String);
     }
     else
     {
-        String = stringifyInstruction(5, INSTRUCTIONS[OperationType], REGISTERS[3][0], START, REGISTERS[3][3], END);
+        String = stringifyInstruction(5, INSTRUCTIONS[OperationType], REGISTERS[Type][0], START, REGISTERS[Type][3], END);
         fwrite(String, strlen(String), 1, OutputFile);
         free(String);
     }
@@ -496,6 +493,16 @@ beginCalculation:
 uint32_t complexArith(uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint8_t OptionalParam)
 {
     uint8_t* String = 0;
+
+    //Ensuring Return is Valid.
+    LocalNameStruct ReturnStruct = { 0 };
+
+    for (uint32_t x = 0; x < VariableCount; x++)
+        if (!strcmp(TokenBuffer[StartLocation - 3], Variables[x].Name))
+            ReturnStruct = Variables[x];
+
+    if (!ReturnStruct.Name) return ARTH_UNKNOWN_VAR;
+
 
     //Not a Complex Equation.
     for (uint32_t x = 0; x < PublicFunctionCount; x++)
@@ -590,7 +597,7 @@ uint32_t complexArith(uint32_t StartLocation, LocalNameStruct* Variables, uint32
             for (uint8_t x = 0; x < ORDER_SIZE; x++)
                 if (OrderBuffer[OrderNum - 1][x].Count)
                     for (uint32_t z = 0; z < OrderBuffer[OrderNum - 1][x].Count; z++)
-                        writeOperation(OrderBuffer[OrderNum - 1][x].Locations[z], OrderBuffer, OrderNum - 1, OrderCount, Variables, VariableCount);
+                        writeOperation(OrderBuffer[OrderNum - 1][x].Locations[z], OrderBuffer, OrderCount, Variables, VariableCount, ReturnStruct.Type);
             continue;
         }
 
@@ -605,17 +612,14 @@ uint32_t complexArith(uint32_t StartLocation, LocalNameStruct* Variables, uint32
         return MaxCount;
     }
 
-    for (uint32_t x = 0; x < VariableCount; x++)
-        if (!strcmp(TokenBuffer[StartLocation - 1], Variables[x].Name))
-        {
-            uint8_t TempStack[12] = { 0 };
-            sprintf(TempStack, "%d", (Variables[VariableCount - 1].StackOffset * 4) - (Variables[x].StackOffset * 4));
+    //If No Conditions are Specified.
+    uint8_t TempStack[12] = { 0 };
+    sprintf(TempStack, "%d", (Variables[VariableCount - 1].StackOffset * 4) - (ReturnStruct.StackOffset * 4));
 
-            String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[3][4], PLUS, TempStack, NEWVAREND, REGISTERS[3][0], END);
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
-            return MaxCount;
-        }
+    String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[3][4], PLUS, TempStack, NEWVAREND, REGISTERS[3][0], END);
+    fwrite(String, 1, strlen(String), OutputFile);
+    free(String);
+    return MaxCount;
 
     //Cleanup.
     for (uint8_t x = 0; x < OrderCount; x++)
