@@ -30,9 +30,13 @@ uint8_t INSTRUCTIONS[12][5] =
     "div ",
     "mod ",
     "add ",
-    "sub "
+    "sub ",
+    "and ",
+    "or ",
+    "xor ",
+    "shl ",
+    "shr "
 };
-
 
 //Stack Specific.
 uint8_t PUSH[] = "push ";
