@@ -1,5 +1,5 @@
-#include "Func.h"
 #include "Arith.h"
+#include "Func.h"
 
 #ifndef ERR_DBG
 #define ERR_DBG
@@ -24,6 +24,7 @@
 
 #define RETURN_TYPE_VOID (uint8_t) 1
 #define RETURN_TYPE_VAL (uint8_t) 1 << 1
+
 
 //OutputFile.
 extern FILE* OutputFile;
@@ -69,7 +70,7 @@ void printVar(LocalNameStruct* Variables, uint32_t VariableCount)
     return;
 }
 
-inline uint16_t getParamCount(uint32_t Location)
+uint16_t getParamCount(uint32_t Location)
 {
     if (TokenBuffer[++Location][0] != '(') return 0;
 
@@ -77,7 +78,7 @@ inline uint16_t getParamCount(uint32_t Location)
 
     do
     {
-        if(TokenBuffer[Location][0] == ':')
+        if (TokenBuffer[Location][0] == ':')
         {
             Count++;
             Location += 2;
@@ -108,7 +109,7 @@ uint16_t getFunctionParams(uint32_t Location)
 
 uint8_t makeFunction(uint32_t Location)
 {
-    if(!strcmp(TokenBuffer[Location], "main"))
+    if (!strcmp(TokenBuffer[Location], "main"))
     {
         volatile int TempValue = 0;
     }
@@ -152,13 +153,13 @@ uint8_t makeFunction(uint32_t Location)
             LocalNameStruct TempStruct = { 0 };
             TempStruct.Name = TokenBuffer[LoopOffset];
             TempStruct.StackOffset = (4 * StackOffset++);
-            
+
             //Getting Size.
             TempStruct.Type = getVariableSize(TokenBuffer[LoopOffset + 2]);
             if (!TempStruct.Type) return ARTH_INVALID_SIZE;
 
             Variables[VariableCount++] = TempStruct;
-            
+
             //Used for Clearing Memory After Function.
             ParameterCount++;
             LoopOffset += 3;
@@ -199,7 +200,7 @@ uint8_t makeFunction(uint32_t Location)
 
                 for (uint32_t y = 0; y < VariableCount; y++)
                     if (!strcmp(TokenBuffer[LoopOffset - 3], Variables[y].Name))
-                        LoopOffset = complexArith(LoopOffset, Variables, VariableCount, Type);
+                        LoopOffset = writeArithmeticOperations(2, LoopOffset, Variables, VariableCount, Type);
                 continue;
             }
 
@@ -208,7 +209,7 @@ uint8_t makeFunction(uint32_t Location)
                 printf("Variable Name: %s \n", Variables[y].Name);
 
                 if (!strcmp(TokenBuffer[LoopOffset - 1], Variables[y].Name))
-                    LoopOffset = complexArith(LoopOffset, Variables, VariableCount, Type);
+                    LoopOffset = writeArithmeticOperations(2, LoopOffset, Variables, VariableCount, Type);
             }
 
             continue;
@@ -281,7 +282,7 @@ uint8_t makeFunction(uint32_t Location)
 
                         callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, ParamCount, Buffer);
                         free(Buffer);
-                        
+
                         LoopOffset = LoopOffset + getFunctionParams(LoopOffset) * 2 + 4;
                         continue;
                     }
@@ -297,9 +298,9 @@ uint8_t makeFunction(uint32_t Location)
 
         LoopOffset++;
     } while (Scope && TokenBuffer[LoopOffset][0] != '}');
-    
+
     //If No Return Previous.
-    if(!ReturnType)
+    if (!ReturnType)
     {
         //Clearing Function Stack.                
         String = "pop eax \n\0";
@@ -322,15 +323,15 @@ uint8_t callFunction(uint8_t* FunctionName, uint8_t ReturnRegister, uint16_t Par
     uint8_t* String = 0;
 
     //Checking for Valid Function.
-    for(uint32_t x = 0; x < PublicFunctionCount; x++)
-        if(!strcmp(FunctionName, PublicNameBuffer[FUNCTIONNAME][x].Name))
+    for (uint32_t x = 0; x < PublicFunctionCount; x++)
+        if (!strcmp(FunctionName, PublicNameBuffer[FUNCTIONNAME][x].Name))
         {
             //Checking Parameter Count.
             uint32_t ParamOffset = getParamCount(PublicNameBuffer[FUNCTIONNAME][x].Location);
             if (ParamOffset == FN_CALL_INVALID) return FN_CALL_INVALID;
             if (ParamOffset != ParameterCount) return FN_LACK_PARAMS;
 
-            for(uint16_t y = 0; y < ParameterCount; y++)
+            for (uint16_t y = 0; y < ParameterCount; y++)
             {
                 String = stringifyInstruction(3, "mov esi, ", Buffer[y], "\n\0");
                 fwrite(String, 1, strlen(String), OutputFile);
@@ -349,7 +350,7 @@ StartCall:
     fwrite(String, 1, strlen(String), OutputFile);
     free(String);
 
-    if(ReturnRegister)
+    if (ReturnRegister)
     {
         extern uint8_t REGISTERS[4][7][4];
 
@@ -362,7 +363,7 @@ StartCall:
     //Clearing up Stack from Previous Function.
     for (uint16_t x = 0; x < ParameterCount; x++)
         fwrite(String, 1, strlen(String), OutputFile);
-    
+
     free(String);
     return 0;
 }
