@@ -19,7 +19,6 @@
 
 #endif
 
-
 //Getting Tokens.
 uint8_t** TokenBuffer = 0;
 uint32_t TokenCount = 0;
@@ -55,9 +54,6 @@ FILE* OutputFile = 0;
 ⣿⡿⠰⠄⠄⠄⠄⠄⠄⠄⠄⠈⠉⠩⠔⠒⠉⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠐⠘⣿
 ⣿⠃⠃⠄⠄⠄⠄⠄⠄⣀⢀⠄⠄⡀⡀⢀⣤⣴⣤⣤⣀⣀⠄⠄⠄⠄⠄⠄⠁⢹
 */
-
-//Instruction related Functions.
-extern uint8_t* stringifyInstruction(uint8_t StringCount, ...);
 
 //Tokenizer.
 uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
@@ -293,6 +289,7 @@ uint8_t compile(uint8_t* FileLocation, uint8_t* OutputLocation)
     if (getTokens(Buffer, Size)) return 3;
     if (sortNames()) return 9;
     
+    //Generate IL for Middleware.
     FILE* GamerFile = fopen("UWU.wil", "rb");
     if(GamerFile)
     {
