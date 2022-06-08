@@ -40,22 +40,6 @@ void createMetadata(uint8_t* Type, uint16_t Properties)
 	return;
 }
 
-void generateTable(uint8_t* Name, uint8_t* Type, uint16_t Properties, uint32_t StartLocation)
-{
-	//Creates the Initial Header.
-	createHeader(Name);
-
-	//Create the Metadata.
-	createMetadata(Type, Properties);
-
-	if(Properties == WIL_PROP_VARIABLE)
-	{
-		return;
-	}
-
-	return;
-}
-
 void generateGlobals(NameStruct* Names)
 {
 	for(uint32_t x = 0; x < PublicVariableCount; x++)
@@ -67,12 +51,6 @@ void generateGlobals(NameStruct* Names)
 	return;
 }
 
-void writeVariable(uint8_t TabOffset)
-{
-
-	return;
-}
-
 void writeFunctionParams(uint32_t ParamCount, uint32_t StartLocation)
 {	
 	uint8_t* String = "\tParams:\n\0";
@@ -81,16 +59,20 @@ void writeFunctionParams(uint32_t ParamCount, uint32_t StartLocation)
 	//Writing Parameters
 	for(uint8_t x = 0; x < ParamCount; x++)
 	{
-		String = stringifyInstruction(5, "\t", TokenBuffer[x * 3], " : ", TokenBuffer[x * 3 + 1], "\n\0");
+		String = stringifyInstruction(5, "\t", TokenBuffer[x * 4 + StartLocation], " : ", TokenBuffer[x * 4 + 2 + StartLocation], "\n\0");
 		fwrite(String, 1, strlen(String), IntermediateFile);
 		free(String);
 	}
+
+	fwrite("\n\0", 1, 1, IntermediateFile);
 	return;
 }
 
 void generateVariable(uint8_t* Name, uint8_t* Type)
 {
-
+	uint8_t* String = stringifyInstruction(5, "; ", Name, " : ", Type, "\n\0");
+	fwrite(String, 1, strlen(String), IntermediateFile);
+	free(String);
 	return;
 }
 
@@ -101,6 +83,8 @@ void generateFunctions(NameStruct* FunctionNames)
 	{
 		uint32_t Location = FunctionNames[x].Location;
 		
+		printf("Location: %s \n", TokenBuffer[Location]);	
+
 		//Extra Setup.
 		createHeader(FunctionNames[x].Name);
 		createMetadata("Function ", 0);
@@ -109,11 +93,11 @@ void generateFunctions(NameStruct* FunctionNames)
 		fwrite(String, 1, strlen(String), IntermediateFile);
 		
 		//Parameters.
-		writeFunctionParams(0, Location);
+		writeFunctionParams(getParamCount(Location), Location + 2);
 		
 		//Instructions.
 		fwrite("\tText:\n\0", 1, strlen("\tText:\n\0"), IntermediateFile);
-		makeFunction(Location);
+		//makeFunction(Location);
 
 		fwrite("}\n\n\0", 1, strlen("}\n\n\0"), IntermediateFile);
 	}
