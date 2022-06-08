@@ -1,6 +1,5 @@
 #include "Compile.h"
-#include "Arith.h"
-#include "Func.h"
+#include "WIL.h"
 
 #ifndef ERR_DBG
 #define ERR_DBG
@@ -60,107 +59,6 @@ FILE* OutputFile = 0;
 //Instruction related Functions.
 extern uint8_t* stringifyInstruction(uint8_t StringCount, ...);
 
-//Initialisation related.
-uint8_t initFunctions()
-{
-    for (uint8_t x = 0; x < PublicFunctionCount; x++)
-    {
-        //Variable for the Location of the Function.
-        uint32_t Location = PublicNameBuffer[FUNCTIONNAME][x].Location;
-
-        //Writing the Name of the Buffer and translating it to a function in asm.
-        uint8_t* String = stringifyInstruction(2, PublicNameBuffer[FUNCTIONNAME][x].Name, ":\n\0");
-        fwrite(String, 1, strlen(String), OutputFile);
-        free(String);
-
-        makeFunction(Location);
-        printf("Function [%s] created \n", PublicNameBuffer[FUNCTIONNAME][x].Name);
-    }
-
-    return 0;
-}
-
-uint8_t initVariables()
-{
-    if (!OutputFile)
-    {
-        OutputFile = fopen("src.asm", "rb");
-        if (OutputFile)
-        {
-            fclose(OutputFile);
-            remove("src.asm");
-        }
-
-        OutputFile = fopen("src.asm", "ab");
-    }
-
-    uint8_t BSSSection[] = "Section .bss\n\0";
-    fwrite(BSSSection, 1, strlen(BSSSection), OutputFile);
-
-    for (uint32_t x = 0; x < PublicVariableCount; x++)
-    {
-        uint8_t VARRESB[] = ": resb ";
-        uint8_t END[] = "\n\0";
-        size_t Length = (uint16_t)strlen(PublicNameBuffer[VARIABLENAME][x].Name) + strlen(VARRESB) + strlen(END) + 1;
-
-        uint8_t* Buffer = malloc(Length + 1);
-        if (!Buffer) return BUFFER_INIT_ERROR;
-
-        strcpy(Buffer, PublicNameBuffer[VARIABLENAME][x].Name);
-        strcat(Buffer, VARRESB);
-
-        if (!strcmp(TokenBuffer[PublicNameBuffer[VARIABLENAME][x].Location + 2], "u1"))
-            strcat(Buffer, "1");
-        else if (!strcmp(TokenBuffer[PublicNameBuffer[VARIABLENAME][x].Location + 2], "u2"))
-            strcat(Buffer, "2");
-        else if (!strcmp(TokenBuffer[PublicNameBuffer[VARIABLENAME][x].Location + 2], "u4"))
-            strcat(Buffer, "4");
-
-        strcat(Buffer, END);
-
-        Buffer[Length] = '\0';
-        fwrite(Buffer, 1, Length, OutputFile);
-        free(Buffer);
-    }
-
-    //Set up Section .text
-    uint8_t TXTSection[] = "\n\n\nSection .text\n\n\0";
-    fwrite(TXTSection, 1, strlen(TXTSection), OutputFile);
-
-    //Assign Values to Global Variables.
-    for (uint32_t x = 0; x < PublicVariableCount; x++)
-    {
-        if (TokenBuffer[PublicNameBuffer[VARIABLENAME][x].Location + 3][0] == '=')
-        {
-            uint8_t MOV1[] = "mov [";
-            uint8_t MOV2[] = "], ";
-            uint8_t END[] = "\n\0";
-
-            uint8_t* Buffer = stringifyInstruction(5, MOV1, PublicNameBuffer[VARIABLENAME][x].Name, MOV2, TokenBuffer[PublicNameBuffer[VARIABLENAME][x].Location + 4], END);
-            fwrite(Buffer, 1, strlen(Buffer), OutputFile);
-            free(Buffer);
-        }
-        else
-        {
-            uint8_t MOV1[] = "mov [";
-            uint8_t MOV2[] = "], 0\n\0";
-
-            uint8_t* Buffer = stringifyInstruction(3, MOV1, PublicNameBuffer[VARIABLENAME][x].Name, MOV2);
-            fwrite(Buffer, 1, strlen(Buffer), OutputFile);
-            free(Buffer);
-        }
-    }
-
-    //Adding some padding between functions and init variables.
-    fwrite("\n", 1, 1, OutputFile);
-
-    //Calculating Logic of Functions.
-    if (initFunctions()) return 1;
-
-    fclose(OutputFile);
-    return 0;
-}
-
 //Tokenizer.
 uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
 {
@@ -216,7 +114,7 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
             case '^': goto Syntax;
             case '|': goto Syntax;
 
-            //Declaration.
+                //Declaration.
             case ';': goto Syntax;
             }
             y++;
@@ -363,7 +261,7 @@ uint8_t sortNames()
     return 0;
 }
 
-uint8_t compile(const uint8_t* FileLocation, const uint8_t* OutputLocation)
+uint8_t compile(uint8_t* FileLocation, uint8_t* OutputLocation)
 {
     FILE* File = fopen(FileLocation, "rb");
     if (!File) return 1;
@@ -394,6 +292,16 @@ uint8_t compile(const uint8_t* FileLocation, const uint8_t* OutputLocation)
 
     if (getTokens(Buffer, Size)) return 3;
     if (sortNames()) return 9;
-    if (initVariables()) return 10;
+    
+    FILE* GamerFile = fopen("UWU.wil", "rb");
+    if(GamerFile)
+    {
+        remove("UWU.wil");
+        fclose(GamerFile);
+    } 
+
+    GamerFile = fopen("UWU.wil", "ab");
+    if (generateIntermediateLanguage(GamerFile)) return 10;
+
     return 0;
 }
