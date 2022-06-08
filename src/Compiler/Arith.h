@@ -29,4 +29,4 @@ typedef struct
     uint32_t StackOffset;
 } LocalNameStruct;
 
-uint32_t complexArith(uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint8_t OptionalParam);
+uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint8_t OptionalParam);
