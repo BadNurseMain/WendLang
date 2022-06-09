@@ -15,6 +15,7 @@
 
 #pragma warning(disable : 6386)
 #pragma warning(disable : 6385)
+#pragma warning(disable : 4996)
 
 //Definitions for NameBuffer.
 #define FUNCTIONNAME (uint8_t)0
@@ -87,6 +88,15 @@ uint8_t PublicTabOffset = 0;
 //      bitwise, functions and pointers.            (Done bitwise and function calls.)
 
 extern uint16_t getFunctionParams(uint32_t Location);
+
+void createTabOffset()
+{
+    for (uint8_t x = 0; x < PublicTabOffset; x++)
+        fwrite("\t", 1, 1, IntermediateFile);
+    
+    return;
+}
+
 
 //VA For Creating ASM File.
 uint8_t* stringifyInstruction(uint8_t StringCount, ...)
@@ -295,14 +305,50 @@ uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarC
             ReturnVar = LocalVar[x];
     }
 
-
     if (!ReturnVar.Name) return 1;
+
+    //Writing Original Equation.
+    for (uint8_t x = 0; x < PublicTabOffset; x++)
+        fwrite("\t", 1, 1, IntermediateFile);
+
+    if (TokenBuffer[StartLocation - 2][0] == ':')
+    {
+        String = stringifyInstruction(5, "; ", TokenBuffer[StartLocation - 3], " : ", TokenBuffer[StartLocation - 1], " {\0");
+        fwrite(String, 1, strlen(String), IntermediateFile);
+        free(String);
+    }
+    else
+    {
+        switch(ReturnVar.Type)
+        {
+            case 1:
+                String = "u1";
+                break;
+
+            case 2:
+                String = "u2";
+                break;
+
+            case 4:
+                String = "u4";
+                break;
+        }
+
+        String = stringifyInstruction(5, "; ", ReturnVar.Name, " : ", String, "{\0");
+        fwrite(String, 1, strlen(String), IntermediateFile);
+        free(String);
+    }
+
+    for (uint32_t x = StartLocation + 1; TokenBuffer[x][0] != ';'; x++)
+        fwrite(TokenBuffer[x], 1, strlen(TokenBuffer[x]), IntermediateFile);
+
+    fwrite("}\n\0", 1, 2, IntermediateFile);
 
     //Checking if it is a Number.
     if (TokenBuffer[StartLocation + 1][0] >= '0' && TokenBuffer[StartLocation + 1][0] <= '9')
     {
         String = stringifyInstruction(5, MOVE, REGISTERS[3][0], START, TokenBuffer[StartLocation + 1], END);
-        
+
         for (uint8_t x = 0; x < PublicTabOffset; x++)
             fwrite("\t", 1, 1, IntermediateFile);
 
@@ -317,8 +363,7 @@ uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarC
         {
 
         }
-
-
+    
     uint32_t VariableLocation = getLocalVariable(StartLocation + 1, LocalVar, VarCount);
 
     //Is a Local Variable.
@@ -331,7 +376,7 @@ uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarC
         String = stringifyInstruction(7, MOVE, REGISTERS[3][0], VARSTART, REGISTERS[3][4], PLUS, StackOffset, VAREND);
         for (uint8_t x = 0; x < PublicTabOffset; x++)
             fwrite("\t", 1, 1, IntermediateFile);
-        
+
         fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
         goto assignReturn;
@@ -369,14 +414,14 @@ assignReturn:
         String = stringifyInstruction(3, PUSH, REGISTERS[3][0], END);
         for (uint8_t x = 0; x < PublicTabOffset; x++)
             fwrite("\t", 1, 1, IntermediateFile);
-        
+
         fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
         return 0;
     }
 
     uint8_t ReturnStack[12] = { 0 };
-    sprintf(ReturnStack, "%d", (VarCount - 1 - ReturnVar.StackOffset) * 4);
+    sprintf(ReturnStack, "%d", (LocalVar[VarCount - 1].StackOffset - ReturnVar.StackOffset) * 4);
 
     String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[3][4], PLUS, ReturnStack, NEWVAREND, REGISTERS[3][0], END);
     for (uint8_t x = 0; x < PublicTabOffset; x++)
@@ -505,6 +550,9 @@ beginCalculation:
     if (OperationType == Multiply || OperationType == Division)
     {
         String = stringifyInstruction(3, INSTRUCTIONS[OperationType], REGISTERS[Type][3], END);
+        for (uint8_t x = 0; x < PublicTabOffset; x++)
+            fwrite("\t", 1, 1, IntermediateFile);
+        
         fwrite(String, strlen(String), 1, IntermediateFile);
         free(String);
     }
@@ -531,12 +579,19 @@ beginCalculation:
     return 0;
 }
 
-uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint8_t OptionalParam) 
+uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint8_t OptionalParam)
 {
     PublicTabOffset = TabOffset;
 
     uint8_t* String = 0;
-    
+
+    //Not a Complex Equation.
+    if (TokenBuffer[StartLocation + 2][0] == ';')
+    {
+        if (isNotComplex(StartLocation, Variables, VariableCount, OptionalParam)) return 1;
+        else return StartLocation + 3;;
+    }
+
     //Ensuring Return is Valid.
     LocalNameStruct ReturnStruct = { 0 };
 
@@ -546,19 +601,21 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
 
     if (!ReturnStruct.Name) return ARTH_UNKNOWN_VAR;
 
+    //For writing out Original Equation.
+    for (uint8_t x = 0; x < TabOffset; x++)
+        fwrite("\t", 1, 1, IntermediateFile);
 
-    //Not a Complex Equation.
-    for (uint32_t x = 0; x < PublicFunctionCount; x++)
-        if (!strcmp(TokenBuffer[StartLocation + 1], PublicNameBuffer[FUNCTIONNAME][x].Name))
-        {
-            if (isNotComplex(StartLocation, Variables, VariableCount, OptionalParam)) return 1;
-            else return StartLocation + getFunctionParams(StartLocation + 1) * 2 + 4;
-        }
-
-    if (TokenBuffer[StartLocation + 2][0] == ';')
+    if (TokenBuffer[StartLocation - 2][0] == ':')
     {
-        if (isNotComplex(StartLocation, Variables, VariableCount, OptionalParam)) return 1;
-        else return StartLocation + 3;;
+        String = stringifyInstruction(5, "; ", TokenBuffer[StartLocation - 3], " : ", TokenBuffer[StartLocation - 1], " {\0");
+        fwrite(String, 1, strlen(String), IntermediateFile);
+        free(String);
+    }
+    else
+    {
+        String = stringifyInstruction(5, "; ", ReturnStruct.Name, " : ", ReturnStruct.Type, "{\0");
+        fwrite(String, 1, strlen(String), IntermediateFile);
+        free(String);
     }
 
     //Loop Variables.
@@ -591,8 +648,11 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
             PrecedenceCount--;
         }
 
+        fwrite(TokenBuffer[MaxCount], 1, strlen(TokenBuffer[MaxCount]), IntermediateFile);
         MaxCount++;
     } while (TokenBuffer[MaxCount][0] != ';');
+
+    fwrite("}\n", 1, 2, IntermediateFile);
 
     //Allocating Memory for OrderCount.
     uint32_t OrderNum = 0;
@@ -647,9 +707,9 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
         MaxCount++;
     } while (PrecedenceMax || TokenBuffer[MaxCount][0] != ';');
 
-    if (OptionalParam == 1)
+    if (OptionalParam == ARTH_TYPE_STACK)
     {
-        String = stringifyInstruction(3, PUSH, REGISTERS[3][0], END);
+        String = stringifyInstruction(4, PUSH, REGISTERS[3][0], "\n", END);
         for (uint8_t x = 0; x < PublicTabOffset; x++)
             fwrite("\t", 1, 1, IntermediateFile);
 
@@ -662,12 +722,13 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
     uint8_t TempStack[12] = { 0 };
     sprintf(TempStack, "%d", (Variables[VariableCount - 1].StackOffset * 4) - (ReturnStruct.StackOffset * 4));
 
-    String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[3][4], PLUS, TempStack, NEWVAREND, REGISTERS[3][0], END);
+    String = stringifyInstruction(9, MOVE, NEWVARSTART, REGISTERS[3][4], PLUS, TempStack, NEWVAREND, REGISTERS[3][0], "\n", END);
     for (uint8_t x = 0; x < PublicTabOffset; x++)
         fwrite("\t", 1, 1, IntermediateFile);
 
     fwrite(String, 1, strlen(String), IntermediateFile);
     free(String);
+
     return MaxCount;
 
     //Cleanup.
@@ -680,5 +741,136 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
     }
 
     free(OrderBuffer);
+    return 0;
+}
+
+
+//------------------------------------ CONDITIONALS -------------------------------------------------
+extern uint8_t getVariableSize(const uint8_t* Type);
+
+uint8_t getConditionalOperator(uint8_t* Operator)
+{
+    switch(Operator[0])
+    {
+        case '<': return LessThan;
+        case '>': return GreaterThan;
+        case '=': 
+        {
+            if (Operator[1] == '=') return Equality;
+        }
+
+
+    }
+    return 0;
+}
+
+uint32_t writeConditionalInstructions(uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount)
+{
+    uint32_t Precedence = 0, Loop = StartLocation + 1, StackOffset = Variables[VariableCount - 1].StackOffset;
+    LocalNameStruct TempStruct = { 0 };
+
+    do
+    {
+        if (TokenBuffer[Loop][0] == '{') ++Precedence;
+        else if (TokenBuffer[Loop][0] == '}') --Precedence;
+
+        if (TokenBuffer[Loop][0] == '=')
+        {
+            uint8_t Type = 0;
+            if (TokenBuffer[Loop - 2][0] == ':')
+            {
+                TempStruct.Name = TokenBuffer[Loop - 3];
+                TempStruct.StackOffset = 4 * StackOffset++;
+
+                //Getting Size.
+                TempStruct.Type = getVariableSize(TokenBuffer[Loop - 1]);
+                if (!TempStruct.Type) return ARTH_INVALID_SIZE;
+
+                Variables[VariableCount++] = TempStruct;
+                Type = ARTH_TYPE_STACK;
+
+                for (uint32_t y = 0; y < VariableCount; y++)
+                    if (!strcmp(TokenBuffer[Loop - 3], Variables[y].Name))
+                        Loop = writeArithmeticOperations(2, Loop, Variables, VariableCount, Type);
+                continue;
+            }
+
+            for (uint32_t y = 0; y < VariableCount; y++)
+            {
+                printf("Variable Name: %s \n", Variables[y].Name);
+
+                if (!strcmp(TokenBuffer[Loop - 1], Variables[y].Name))
+                    Loop = writeArithmeticOperations(2, Loop, Variables, VariableCount, Type);
+            }
+        }
+
+        Loop++;
+    } while (Precedence);
+
+    return Loop;
+}
+
+uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint32_t ConditionalCount, uint8_t OptionalParam)
+{
+    uint8_t* String;
+    
+    //Jump Related Stuff.
+    uint8_t ConditionalBuffer[20] = { 0 }, JumpName[64] = { 0 };
+    
+    strcpy(JumpName, FunctionName);
+
+    itoa(ConditionalCount, ConditionalBuffer, 10);
+    strcat(JumpName, ConditionalBuffer);
+
+    //Not Complex.
+    if(getConditionalOperator(TokenBuffer[StartLocation + 2]))
+    {
+        String = stringifyInstruction(5, MOVE, REGISTERS[3][0], START, TokenBuffer[StartLocation + 1], END);
+        createTabOffset();
+        
+        fwrite(String, 1, strlen(String), IntermediateFile);
+        free(String);
+
+        String = stringifyInstruction(5, MOVE, REGISTERS[3][3], START, TokenBuffer[StartLocation + 3], END);
+        createTabOffset();
+
+        fwrite(String, 1, strlen(String), IntermediateFile);
+        free(String);
+
+        String = stringifyInstruction(5, "cmp ", REGISTERS[3][0], START, REGISTERS[3][3], END);
+        createTabOffset();
+
+        fwrite(String, 1, strlen(String), IntermediateFile);
+        free(String);
+
+        uint8_t Value = getConditionalOperator(TokenBuffer[StartLocation + 2]);
+
+        if(Value == LessThan)
+        {
+            String = stringifyInstruction(3, INSTRUCTIONS[GreaterThan], JumpName, END);        
+            createTabOffset();
+
+            fwrite(String, 1, strlen(String), IntermediateFile);
+            free(String);
+        }
+
+        if (Value == GreaterThan)
+        {
+            String = stringifyInstruction(3, INSTRUCTIONS[LessThan], JumpName, END);
+            createTabOffset();
+
+            fwrite(String, 1, strlen(String), IntermediateFile);
+            free(String);
+        }
+
+        uint32_t ReturnValue = writeConditionalInstructions(StartLocation + 4, Variables, VariableCount);
+
+        String = stringifyInstruction(3, JumpName, ": ", END);
+        fwrite(String, 1, strlen(String), IntermediateFile);
+        free(String);
+
+        return ReturnValue;
+    }
+
     return 0;
 }
