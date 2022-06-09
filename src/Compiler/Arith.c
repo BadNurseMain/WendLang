@@ -409,7 +409,7 @@ uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarC
 
     //Assigning the Values from the Returns.
 assignReturn:
-    if (Type == 1)
+    if (Type == ARTH_TYPE_STACK)
     {
         String = stringifyInstruction(3, PUSH, REGISTERS[3][0], END);
         for (uint8_t x = 0; x < PublicTabOffset; x++)
@@ -417,11 +417,14 @@ assignReturn:
 
         fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
+
+        //Adding Spacing.
+        fwrite("\n", 1, 1, IntermediateFile);
         return 0;
     }
 
     uint8_t ReturnStack[12] = { 0 };
-    sprintf(ReturnStack, "%d", (LocalVar[VarCount - 1].StackOffset - ReturnVar.StackOffset) * 4);
+    sprintf(ReturnStack, "%d", LocalVar[VarCount - 1].StackOffset - ReturnVar.StackOffset);
 
     String = stringifyInstruction(8, MOVE, NEWVARSTART, REGISTERS[3][4], PLUS, ReturnStack, NEWVAREND, REGISTERS[3][0], END);
     for (uint8_t x = 0; x < PublicTabOffset; x++)
@@ -429,6 +432,9 @@ assignReturn:
 
     fwrite(String, 1, strlen(String), IntermediateFile);
     free(String);
+
+    //Adding Spacing.
+    fwrite("\n", 1, 1, IntermediateFile);
     return 0;
 }
 
@@ -715,7 +721,7 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
 
         fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
-        return MaxCount;
+        goto cleanup;
     }
 
     //If No Conditions are Specified.
@@ -729,8 +735,7 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
     fwrite(String, 1, strlen(String), IntermediateFile);
     free(String);
 
-    return MaxCount;
-
+cleanup:
     //Cleanup.
     for (uint8_t x = 0; x < OrderCount; x++)
     {
@@ -741,7 +746,10 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
     }
 
     free(OrderBuffer);
-    return 0;
+
+    //Adding Spacing.
+    fwrite("\n", 1, 1, IntermediateFile);
+    return MaxCount;
 }
 
 
@@ -819,7 +827,7 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
     
     strcpy(JumpName, FunctionName);
 
-    itoa(ConditionalCount, ConditionalBuffer, 10);
+    sprintf(ConditionalBuffer, "%d", ConditionalCount);
     strcat(JumpName, ConditionalBuffer);
 
     //Not Complex.
@@ -847,7 +855,7 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
 
         if(Value == LessThan)
         {
-            String = stringifyInstruction(3, INSTRUCTIONS[GreaterThan], JumpName, END);        
+            String = stringifyInstruction(4, INSTRUCTIONS[GreaterThan], JumpName, "\n", END);        
             createTabOffset();
 
             fwrite(String, 1, strlen(String), IntermediateFile);
@@ -856,7 +864,7 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
 
         if (Value == GreaterThan)
         {
-            String = stringifyInstruction(3, INSTRUCTIONS[LessThan], JumpName, END);
+            String = stringifyInstruction(4, INSTRUCTIONS[LessThan], JumpName, "\n", END);
             createTabOffset();
 
             fwrite(String, 1, strlen(String), IntermediateFile);
