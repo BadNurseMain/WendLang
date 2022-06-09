@@ -42,7 +42,7 @@ void createMetadata(uint8_t* Type, uint16_t Properties)
 
 void generateGlobals(NameStruct* Names)
 {
-	for(uint32_t x = 0; x < PublicVariableCount; x++)
+	for (uint32_t x = 0; x < PublicVariableCount; x++)
 	{
 		uint32_t Location = Names[x].Location;
 		createHeader(Names[x].Name);
@@ -52,12 +52,12 @@ void generateGlobals(NameStruct* Names)
 }
 
 void writeFunctionParams(uint32_t ParamCount, uint32_t StartLocation)
-{	
+{
 	uint8_t* String = "\tParams:\n\0";
 	fwrite(String, 1, strlen(String), IntermediateFile);
 
 	//Writing Parameters
-	for(uint8_t x = 0; x < ParamCount; x++)
+	for (uint8_t x = 0; x < ParamCount; x++)
 	{
 		String = stringifyInstruction(5, "\t", TokenBuffer[x * 4 + StartLocation], " : ", TokenBuffer[x * 4 + 2 + StartLocation], "\n\0");
 		fwrite(String, 1, strlen(String), IntermediateFile);
@@ -79,11 +79,11 @@ void generateVariable(uint8_t* Name, uint8_t* Type)
 void generateFunctions(NameStruct* FunctionNames)
 {
 	//Going through each function.
-	for(uint32_t x = 0; x < PublicFunctionCount; x++)
+	for (uint32_t x = 0; x < PublicFunctionCount; x++)
 	{
 		uint32_t Location = FunctionNames[x].Location;
-		
-		printf("Location: %s \n", TokenBuffer[Location]);	
+
+		printf("Location: %s \n", TokenBuffer[Location]);
 
 		//Extra Setup.
 		createHeader(FunctionNames[x].Name);
@@ -91,13 +91,13 @@ void generateFunctions(NameStruct* FunctionNames)
 
 		uint8_t* String = "{\n\0";
 		fwrite(String, 1, strlen(String), IntermediateFile);
-		
+
 		//Parameters.
 		writeFunctionParams(getParamCount(Location), Location + 2);
-		
+
 		//Instructions.
 		fwrite("\tText:\n\0", 1, strlen("\tText:\n\0"), IntermediateFile);
-		//makeFunction(Location);
+		makeFunction(Location);
 
 		fwrite("}\n\n\0", 1, strlen("}\n\n\0"), IntermediateFile);
 	}
