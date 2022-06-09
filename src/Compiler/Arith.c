@@ -93,7 +93,7 @@ void createTabOffset()
 {
     for (uint8_t x = 0; x < PublicTabOffset; x++)
         fwrite("\t", 1, 1, IntermediateFile);
-    
+
     return;
 }
 
@@ -319,19 +319,19 @@ uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarC
     }
     else
     {
-        switch(ReturnVar.Type)
+        switch (ReturnVar.Type)
         {
-            case 1:
-                String = "u1";
-                break;
+        case 1:
+            String = "u1";
+            break;
 
-            case 2:
-                String = "u2";
-                break;
+        case 2:
+            String = "u2";
+            break;
 
-            case 4:
-                String = "u4";
-                break;
+        case 4:
+            String = "u4";
+            break;
         }
 
         String = stringifyInstruction(5, "; ", ReturnVar.Name, " : ", String, "{\0");
@@ -363,7 +363,7 @@ uint8_t isNotComplex(uint32_t StartLocation, void* LocalVarBuffer, uint32_t VarC
         {
 
         }
-    
+
     uint32_t VariableLocation = getLocalVariable(StartLocation + 1, LocalVar, VarCount);
 
     //Is a Local Variable.
@@ -558,7 +558,7 @@ beginCalculation:
         String = stringifyInstruction(3, INSTRUCTIONS[OperationType], REGISTERS[Type][3], END);
         for (uint8_t x = 0; x < PublicTabOffset; x++)
             fwrite("\t", 1, 1, IntermediateFile);
-        
+
         fwrite(String, strlen(String), 1, IntermediateFile);
         free(String);
     }
@@ -758,14 +758,14 @@ extern uint8_t getVariableSize(const uint8_t* Type);
 
 uint8_t getConditionalOperator(uint8_t* Operator)
 {
-    switch(Operator[0])
+    switch (Operator[0])
     {
-        case '<': return LessThan;
-        case '>': return GreaterThan;
-        case '=': 
-        {
-            if (Operator[1] == '=') return Equality;
-        }
+    case '<': return LessThan;
+    case '>': return GreaterThan;
+    case '=':
+    {
+        if (Operator[1] == '=') return Equality;
+    }
 
 
     }
@@ -821,21 +821,38 @@ uint32_t writeConditionalInstructions(uint32_t StartLocation, LocalNameStruct* V
 uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint32_t ConditionalCount, uint8_t OptionalParam)
 {
     uint8_t* String;
-    
+
     //Jump Related Stuff.
     uint8_t ConditionalBuffer[20] = { 0 }, JumpName[64] = { 0 };
-    
+
     strcpy(JumpName, FunctionName);
 
     sprintf(ConditionalBuffer, "%d", ConditionalCount);
     strcat(JumpName, ConditionalBuffer);
 
+    uint32_t Loop = StartLocation;
+
+    //Write Original IF Statement.
+    do
+    {
+        Loop++;
+    } while (TokenBuffer[Loop][0] != '{');
+
+    //Writing Original.
+    createTabOffset();
+    fwrite("; ", 1, 2, IntermediateFile);
+
+    for (uint32_t x = StartLocation - 1; x < Loop; x++)
+        fwrite(TokenBuffer[x], 1, strlen(TokenBuffer[x]), IntermediateFile);
+
+    fwrite("\n\0", 1, 1, IntermediateFile);
+
     //Not Complex.
-    if(getConditionalOperator(TokenBuffer[StartLocation + 2]))
+    if (getConditionalOperator(TokenBuffer[StartLocation + 2]))
     {
         String = stringifyInstruction(5, MOVE, REGISTERS[3][0], START, TokenBuffer[StartLocation + 1], END);
         createTabOffset();
-        
+
         fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
 
@@ -853,9 +870,9 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
 
         uint8_t Value = getConditionalOperator(TokenBuffer[StartLocation + 2]);
 
-        if(Value == LessThan)
+        if (Value == LessThan)
         {
-            String = stringifyInstruction(4, INSTRUCTIONS[GreaterThan], JumpName, "\n", END);        
+            String = stringifyInstruction(4, INSTRUCTIONS[GreaterThan], JumpName, "\n", END);
             createTabOffset();
 
             fwrite(String, 1, strlen(String), IntermediateFile);
