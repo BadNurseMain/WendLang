@@ -31,3 +31,5 @@
 uint8_t makeFunction(uint32_t Location);
 
 uint8_t callFunction(uint8_t* FunctionName, uint8_t ReturnRegister, uint16_t ParameterCount, uint8_t** Buffer);
+
+uint16_t getParamCount(uint32_t Location);
