@@ -1,5 +1,6 @@
 #include "Arith.h"
 #include "Func.h"
+#include "Conditions.h"
 
 #ifndef ERR_DBG
 #define ERR_DBG
@@ -50,8 +51,8 @@ extern uint8_t* stringifyInstruction(uint8_t StringCount, ...);
 //Used later for Complex Arith.
 uint8_t getVariableSize(const uint8_t* Type)
 {
-    if (!strcmp(Type, "u4")) return 4;
-    else if (!strcmp(Type, "s4")) return 4 + (1 << 7);
+    if (!strcmp(Type, "u4")) return 3;
+    else if (!strcmp(Type, "s4")) return 3 + (1 << 7);
 
     if (!strcmp(Type, "u2")) return 2;
     else if (!strcmp(Type, "s2")) return 2 + (1 << 7);
@@ -116,7 +117,7 @@ uint8_t makeFunction(uint32_t Location)
 
     uint8_t* String = 0;
 
-    uint32_t ParameterCount = 0, VariableCount = 0, StackOffset = 0, Scope = 1;
+    uint32_t ParameterCount = 0, VariableCount = 0, StackOffset = 0, Scope = 1, ConditionalCount = 0;
     LocalNameStruct* Variables = malloc(sizeof(LocalNameStruct) * 10);
     if (!Variables) return MALLOC_NO_MEM;
 
@@ -182,7 +183,7 @@ uint8_t makeFunction(uint32_t Location)
 
     do
     {
-        //Changing Existing Variable.
+        //Changing Variable.
         if (TokenBuffer[LoopOffset][0] == '=')
         {
             uint8_t Type = 0;
@@ -196,7 +197,7 @@ uint8_t makeFunction(uint32_t Location)
                 if (!TempStruct.Type) return ARTH_INVALID_SIZE;
 
                 Variables[VariableCount++] = TempStruct;
-                Type = 1;
+                Type = ARTH_TYPE_STACK;
 
                 for (uint32_t y = 0; y < VariableCount; y++)
                     if (!strcmp(TokenBuffer[LoopOffset - 3], Variables[y].Name))
@@ -220,6 +221,11 @@ uint8_t makeFunction(uint32_t Location)
             Scope += (TokenBuffer[LoopOffset][0] - 124) * -1;
             LoopOffset++;
             continue;
+        }
+
+        if(!strcmp("if", TokenBuffer[LoopOffset]))
+        {
+            writeConditionalOperations(TokenBuffer[Location], LoopOffset + 1, Variables, VariableCount, ConditionalCount++, 0);
         }
 
         if (!strcmp(TokenBuffer[LoopOffset], "ret"))
