@@ -257,7 +257,7 @@ uint8_t sortNames()
     return 0;
 }
 
-uint8_t compile(uint8_t* FileLocation, uint8_t* OutputLocation)
+uint8_t compile(const uint8_t* FileLocation, const uint8_t* OutputLocation)
 {
     FILE* File = fopen(FileLocation, "rb");
     if (!File) return 1;
