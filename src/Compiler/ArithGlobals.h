@@ -35,7 +35,9 @@ uint8_t INSTRUCTIONS[12][5] =
     "or ",
     "xor ",
     "shl ",
-    "shr "
+    "shr ",
+    "jl ",
+    "jr "
 };
 
 //Stack Specific.
