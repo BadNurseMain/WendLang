@@ -44,6 +44,8 @@ extern uint32_t PublicVariableCount;
 extern uint8_t** TokenBuffer;
 extern uint32_t TokenCount;
 
+extern FILE* IntermediateFile;
+
 //Externs.
 extern uint8_t* stringifyInstruction(uint8_t StringCount, ...);
 
@@ -60,14 +62,6 @@ uint8_t getVariableSize(const uint8_t* Type)
     else if (!strcmp(Type, "s1")) return 1 + (1 << 7);
 
     return 0;
-}
-
-void printVar(LocalNameStruct* Variables, uint32_t VariableCount)
-{
-    for (uint32_t x = 0; x < VariableCount; x++)
-        printf("Name: %s, Stack:%u \n", Variables[x].Name, Variables[x].StackOffset);
-
-    return;
 }
 
 uint16_t getParamCount(uint32_t Location)
@@ -107,10 +101,10 @@ uint16_t getFunctionParams(uint32_t Location)
     return Count;
 }
 
-uint32_t writeGamers(uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint32_t Scope)
+uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint32_t ConditionalCount)
 {
-    uint32_t Precedence = 0, Loop = StartLocation + 1, StackOffset = Variables[VariableCount - 1].StackOffset;
-    uint32_t ReturnType = 0, ConditionalCount = 0, ParameterCount = getParamCount(StartLocation);
+    uint32_t Precedence = 0, Loop = StartLocation, StackOffset = Variables[VariableCount - 1].StackOffset;
+    uint32_t ReturnType = 0, ParameterCount = getParamCount(StartLocation);
     LocalNameStruct TempStruct = { 0 };
 
     do
@@ -141,23 +135,20 @@ uint32_t writeGamers(uint32_t StartLocation, LocalNameStruct* Variables, uint32_
 
             for (uint32_t y = 0; y < VariableCount; y++)
             {
-                printf("Variable Name: %s \n", Variables[y].Name);
-
                 if (!strcmp(TokenBuffer[Loop - 1], Variables[y].Name))
+                {
                     Loop = writeArithmeticOperations(2, Loop, Variables, VariableCount, Type);
+                    break;
+                }
             }
-        }
 
-        if (TokenBuffer[Loop][0] == '{' || TokenBuffer[Loop][0] == '}')
-        {
-            Scope += (TokenBuffer[Loop][0] - 124) * -1;
-            Loop++;
             continue;
         }
 
-        if(!strcmp("if", TokenBuffer[Loop]))
+        if (!strcmp("if", TokenBuffer[Loop]))
         {
-            writeConditionalOperations(TokenBuffer[StartLocation], Loop + 1, Variables, VariableCount, ConditionalCount++, 0);
+            Loop = writeConditionalOperations(FunctionName, Loop + 1, Variables, VariableCount, ++ConditionalCount, 0);
+            if (!strcmp(TokenBuffer[Loop], "fn")) return Loop;
         }
 
         if (!strcmp(TokenBuffer[Loop], "ret"))
@@ -236,17 +227,12 @@ uint32_t writeGamers(uint32_t StartLocation, LocalNameStruct* Variables, uint32_
 
         Loop++;
     } while (Precedence);
-
+    
     return Loop;
 }
 
 uint8_t makeFunction(uint32_t Location)
 {
-    if (!strcmp(TokenBuffer[Location], "main"))
-    {
-        volatile int TempValue = 0;
-    }
-
     uint8_t* String = 0;
 
     uint32_t ParameterCount = 0, VariableCount = 0, StackOffset = 0, Scope = 1, ConditionalCount = 0;
@@ -302,7 +288,7 @@ uint8_t makeFunction(uint32_t Location)
         LoopOffset++;
     } while (TokenBuffer[LoopOffset][0] != ')');
 
-    LoopOffset += 2;
+    LoopOffset++;
 
     //Specifically for Function Calls.
     LocalNameStruct TempStruct = { 0 };
@@ -310,134 +296,8 @@ uint8_t makeFunction(uint32_t Location)
     TempStruct.StackOffset = StackOffset++ * 4;
     Variables[VariableCount++] = TempStruct;
 
-    printVar(Variables, VariableCount);
-    printf("Total Params: %u \n", getParamCount(Location));
-
-    //writeGamers(Location, Variables, VariableCount, Scope);
-    do
-    {
-        //Changing Variable.
-        if (TokenBuffer[LoopOffset][0] == '=')
-        {
-            uint8_t Type = 0;
-            if (TokenBuffer[LoopOffset - 2][0] == ':')
-            {
-                TempStruct.Name = TokenBuffer[LoopOffset - 3];
-                TempStruct.StackOffset = 4 * StackOffset++;
-
-                //Getting Size.
-                TempStruct.Type = getVariableSize(TokenBuffer[LoopOffset - 1]);
-                if (!TempStruct.Type) return ARTH_INVALID_SIZE;
-
-                Variables[VariableCount++] = TempStruct;
-                Type = ARTH_TYPE_STACK;
-
-                for (uint32_t y = 0; y < VariableCount; y++)
-                    if (!strcmp(TokenBuffer[LoopOffset - 3], Variables[y].Name))
-                        LoopOffset = writeArithmeticOperations(2, LoopOffset, Variables, VariableCount, Type);
-                continue;
-            }
-
-            for (uint32_t y = 0; y < VariableCount; y++)
-            {
-                printf("Variable Name: %s \n", Variables[y].Name);
-
-                if (!strcmp(TokenBuffer[LoopOffset - 1], Variables[y].Name))
-                    LoopOffset = writeArithmeticOperations(2, LoopOffset, Variables, VariableCount, Type);
-            }
-
-            continue;
-        }
-
-        if (TokenBuffer[LoopOffset][0] == '{' || TokenBuffer[LoopOffset][0] == '}')
-        {
-            Scope += (TokenBuffer[LoopOffset][0] - 124) * -1;
-            LoopOffset++;
-            continue;
-        }
-
-        if(!strcmp("if", TokenBuffer[LoopOffset]))
-        {
-            writeConditionalOperations(TokenBuffer[Location], LoopOffset + 1, Variables, VariableCount, ConditionalCount++, 0);
-        }
-
-        if (!strcmp(TokenBuffer[LoopOffset], "ret"))
-        {
-            printf("Return: %s Value: %d \n", TokenBuffer[LoopOffset + 1], TokenBuffer[LoopOffset + 1][0]);
-
-            if (TokenBuffer[LoopOffset + 1][0] >= '0' && TokenBuffer[LoopOffset + 1][0] <= '9')
-            {
-                if (ReturnType)
-                    if (ReturnType != RETURN_TYPE_VAL) return FN_RETURN_INVAL;
-
-                //Clearing Function Stack.                
-                String = "pop eax \n\0";
-                for (uint32_t x = VariableCount; x > ParameterCount; x--)
-                    fwrite(String, 1, strlen(String), OutputFile);
-
-                //Storing Return Value.
-                String = stringifyInstruction(5, "mov ebx, ", TokenBuffer[LoopOffset + 1], "\n\0", "ret ", "\n\0");
-                fwrite(String, 1, strlen(String), OutputFile);
-                free(String);
-
-                ReturnType = RETURN_TYPE_VAL;
-                LoopOffset += 3;
-                continue;
-            }
-
-            if (ReturnType)
-                if (ReturnType != RETURN_TYPE_VOID) return FN_RETURN_INVAL;
-
-            //Clearing Function Stack.                
-            String = "pop eax \n\0";
-            for (uint32_t x = 0; x < VariableCount; x++)
-                fwrite(String, 1, strlen(String), OutputFile);
-
-            //Returning.
-            String = stringifyInstruction(2, TokenBuffer[LoopOffset], "\n\0");
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
-
-            ReturnType = RETURN_TYPE_VOID;
-            LoopOffset += 2;
-            continue;
-        }
-
-        if (TokenBuffer[LoopOffset + 1][0] == '(')
-        {
-            for (uint32_t x = 0; x < PublicFunctionCount; x++)
-            {
-                if (!strcmp(TokenBuffer[LoopOffset], PublicNameBuffer[FUNCTIONNAME][x].Name))
-                {
-                    uint16_t ParamCount = getFunctionParams(LoopOffset);
-
-                    if (ParamCount)
-                    {
-                        uint8_t** Buffer = malloc(sizeof(uint8_t*) * ParamCount);
-                        if (!Buffer) return 1;
-
-                        for (uint16_t y = 0; y < ParamCount; y++)
-                            Buffer[y] = TokenBuffer[LoopOffset + 3 + (y * 2)];
-
-                        callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, ParamCount, Buffer);
-                        free(Buffer);
-
-                        LoopOffset = LoopOffset + getFunctionParams(LoopOffset) * 2 + 4;
-                        continue;
-                    }
-
-                    callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, 0, 0);
-                    LoopOffset += 4;
-                    continue;
-                }
-            }
-
-            return FN_CALL_UNKNOWN;
-        }
-
-        LoopOffset++;
-    } while (Scope && TokenBuffer[LoopOffset][0] != '}');
-
+    writeFunctionInstructions(TokenBuffer[Location], LoopOffset, Variables, VariableCount, ConditionalCount);
+   
     //If No Return Previous.
     if (!ReturnType)
     {
