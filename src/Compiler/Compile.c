@@ -76,9 +76,13 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
             continue;
         }
 
+        //For comments to be ignored.
         if (Buffer[y] == '#')
         {
-            while (Buffer[y] != '\n') x++;
+            while (Buffer[x] != '\n') {
+                printf("%c", Buffer[x]);
+                x++;
+            }
             continue;
         }
 
@@ -288,16 +292,16 @@ uint8_t compile(const uint8_t* FileLocation, const uint8_t* OutputLocation)
 
     if (getTokens(Buffer, Size)) return 3;
     if (sortNames()) return 9;
-    
+
     //Generate IL for Middleware.
     FILE* GamerFile = fopen("UWU.wil", "rb");
-    if(GamerFile)
+    if (GamerFile)
     {
         remove("UWU.wil");
         fclose(GamerFile);
-    } 
+    }
 
-    GamerFile = fopen("UWU.wil", "ab");
+    GamerFile = fopen("C:/Users/joshm/Desktop/Pascal/UWU.wil", "ab");
     if (generateIntermediateLanguage(GamerFile)) return 10;
 
     return 0;
