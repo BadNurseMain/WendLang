@@ -850,11 +850,43 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
     //Not Complex.
     if (getConditionalOperator(TokenBuffer[StartLocation + 2]))
     {
+        uint32_t VariableLocation = getLocalVariable(StartLocation + 1, Variables, VariableCount);        
+        if(VariableLocation)
+        {
+            //Stringify Stack Offset.
+            uint8_t StackOffset[12] = { 0 };
+            sprintf(StackOffset, "%d", Variables[VariableCount - 1].StackOffset - Variables[VariableLocation - 1].StackOffset);
+
+            String = stringifyInstruction(7, MOVE, REGISTERS[3][0], VARSTART, REGISTERS[3][4], PLUS, StackOffset, VAREND);
+            createTabOffset();
+
+            fwrite(String, 1, strlen(String), IntermediateFile);
+            free(String);
+            goto notComplexAssignTwo;
+        }
+
+        //Is just a constant.
         String = stringifyInstruction(5, MOVE, REGISTERS[3][0], START, TokenBuffer[StartLocation + 1], END);
         createTabOffset();
 
         fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
+
+notComplexAssignTwo:
+        VariableLocation = getLocalVariable(StartLocation + 3, Variables, VariableCount);
+        if(VariableLocation)
+        {
+            //Stringify Stack Offset.
+            uint8_t StackOffset[12] = { 0 };
+            sprintf(StackOffset, "%d", Variables[VariableCount - 1].StackOffset - Variables[VariableLocation - 1].StackOffset);
+
+            String = stringifyInstruction(7, MOVE, REGISTERS[3][3], VARSTART, REGISTERS[3][4], PLUS, StackOffset, VAREND);
+            createTabOffset();
+
+            fwrite(String, 1, strlen(String), IntermediateFile);
+            free(String);
+            goto notComplexCompare;
+        }
 
         String = stringifyInstruction(5, MOVE, REGISTERS[3][3], START, TokenBuffer[StartLocation + 3], END);
         createTabOffset();
@@ -862,6 +894,7 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
         fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
 
+notComplexCompare:
         String = stringifyInstruction(5, "cmp ", REGISTERS[3][0], START, REGISTERS[3][3], END);
         createTabOffset();
 
