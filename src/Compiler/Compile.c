@@ -305,7 +305,5 @@ uint8_t compile(const uint8_t* FileLocation, const uint8_t* OutputLocation)
     GamerFile = fopen("C:/Users/joshm/Desktop/Pascal/UWU.wil", "ab");
     if (generateIntermediateLanguage(GamerFile)) return 10;
     
-    if (convertILtoASM()) return 11;
-
     return 0;
 }
