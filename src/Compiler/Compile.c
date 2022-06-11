@@ -1,4 +1,4 @@
-#include "Compile.h"
+﻿#include "Compile.h"
 #include "WIL.h"
 
 #ifndef ERR_DBG
@@ -301,8 +301,11 @@ uint8_t compile(const uint8_t* FileLocation, const uint8_t* OutputLocation)
         fclose(GamerFile);
     }
 
+    //Turn Frontend into Intermediate Language.
     GamerFile = fopen("C:/Users/joshm/Desktop/Pascal/UWU.wil", "ab");
     if (generateIntermediateLanguage(GamerFile)) return 10;
+    
+    if (convertILtoASM()) return 11;
 
     return 0;
 }
