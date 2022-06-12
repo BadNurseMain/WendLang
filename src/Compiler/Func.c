@@ -46,7 +46,14 @@ extern uint32_t TokenCount;
 
 //Externs.
 extern uint8_t* stringifyInstruction(uint8_t StringCount, ...);
-extern void createTabOffset();
+
+
+
+//TODO: Fix How writeFunctionInstructions is Handles in makeFunction. (I don't like it)
+//TODO: Fix The Conditional Counter in writeFunctionInstructions (Most likely will use a pointer).
+
+
+
 //Used later for Complex Arith.
 uint8_t getVariableSize(const uint8_t* Type)
 {
@@ -102,7 +109,7 @@ uint16_t getFunctionParams(uint32_t Location)
     return Count;
 }
 
-uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint32_t ConditionalCount)
+uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint32_t* ConditionalCount, uint32_t PrecedenceCount)
 {
     uint32_t Precedence = 0, Loop = StartLocation, StackOffset = Variables[VariableCount - 1].StackOffset;
     uint32_t ReturnType = 0, ParameterCount = getParamCount(StartLocation);
@@ -148,8 +155,11 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
 
         if (!strcmp("if", TokenBuffer[Loop]))
         {
-            Loop = writeConditionalOperations(FunctionName, Loop + 1, Variables, VariableCount, ++ConditionalCount, 0);
-            if (!strcmp(TokenBuffer[Loop], "fn")) return Loop;
+        	*ConditionalCount += 1;
+            Loop = writeConditionalOperations(FunctionName, Loop + 1, Variables, VariableCount, ConditionalCount, PrecedenceCount);
+            //if (!strcmp(TokenBuffer[Loop], "fn")) return Loop;
+            if(TokenBuffer[Loop][0] == '}') return Loop;
+            if(!PrecedenceCount && TokenBuffer[Loop - 1][0] == '}') return Loop;
         }
 
         if (!strcmp(TokenBuffer[Loop], "ret"))
@@ -297,7 +307,23 @@ uint8_t makeFunction(uint32_t Location)
     TempStruct.StackOffset = StackOffset++ * 4;
     Variables[VariableCount++] = TempStruct;
 
-    writeFunctionInstructions(TokenBuffer[Location], LoopOffset, Variables, VariableCount, ConditionalCount);
+
+    //Getting Total size of the Function
+    uint32_t TotalSize = LoopOffset, PrecedenceGaming = 1;
+    do
+    {
+    	TotalSize++;
+    	if(TokenBuffer[TotalSize][0] == '{') ++PrecedenceGaming;
+    	else if(TokenBuffer[TotalSize][0] == '}') --PrecedenceGaming;
+
+    }while(PrecedenceGaming);
+
+
+    //Going through the function.
+    uint32_t FunctionReturn = LoopOffset;
+    do{
+        FunctionReturn = writeFunctionInstructions(TokenBuffer[Location], FunctionReturn, Variables, VariableCount, &ConditionalCount, 0);
+    }while(FunctionReturn != TotalSize);
 
     //If No Return Previous.
     if (!ReturnType)
