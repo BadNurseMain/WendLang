@@ -46,14 +46,7 @@ extern uint32_t TokenCount;
 
 //Externs.
 extern uint8_t* stringifyInstruction(uint8_t StringCount, ...);
-
-
-
-//TODO: Fix How writeFunctionInstructions is Handles in makeFunction. (I don't like it)
-//TODO: Fix The Conditional Counter in writeFunctionInstructions (Most likely will use a pointer).
-
-
-
+extern void createTabOffset();
 //Used later for Complex Arith.
 uint8_t getVariableSize(const uint8_t* Type)
 {
@@ -109,8 +102,11 @@ uint16_t getFunctionParams(uint32_t Location)
     return Count;
 }
 
-uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint32_t* ConditionalCount, uint32_t PrecedenceCount)
+uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint32_t ConditionalCount)
 {
+    //For clearing stack later on.
+    uint32_t OriginalVariableCount = VariableCount;
+
     uint32_t Precedence = 0, Loop = StartLocation, StackOffset = Variables[VariableCount - 1].StackOffset;
     uint32_t ReturnType = 0, ParameterCount = getParamCount(StartLocation);
     LocalNameStruct TempStruct = { 0 };
@@ -155,11 +151,9 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
 
         if (!strcmp("if", TokenBuffer[Loop]))
         {
-        	*ConditionalCount += 1;
-            Loop = writeConditionalOperations(FunctionName, Loop + 1, Variables, VariableCount, ConditionalCount, PrecedenceCount);
-            //if (!strcmp(TokenBuffer[Loop], "fn")) return Loop;
-            if(TokenBuffer[Loop][0] == '}') return Loop;
-            if(!PrecedenceCount && TokenBuffer[Loop - 1][0] == '}') return Loop;
+            Loop = writeConditionalOperations(FunctionName, Loop + 1, Variables, VariableCount, ++ConditionalCount, 0);
+            continue;
+            if (!strcmp(TokenBuffer[Loop], "fn")) return Loop;
         }
 
         if (!strcmp(TokenBuffer[Loop], "ret"))
@@ -174,7 +168,7 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
                 //Clearing Function Stack.
                 uint8_t* String = "pop eax \n\0";
                 for (uint32_t x = VariableCount; x > ParameterCount; x--)
-                	fwrite(String, 1, strlen(String), IntermediateFile);
+                    fwrite(String, 1, strlen(String), IntermediateFile);
 
                 //Storing Return Value.
                 String = stringifyInstruction(5, "mov ebx, ", TokenBuffer[Loop + 1], "\n\0", "ret ", "\n\0");
@@ -192,7 +186,7 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
             //Clearing Function Stack.
             uint8_t* String = "pop eax \n\0";
             for (uint32_t x = 0; x < VariableCount; x++)
-               fwrite(String, 1, strlen(String), IntermediateFile);
+                fwrite(String, 1, strlen(String), IntermediateFile);
 
             //Returning.
             String = stringifyInstruction(2, TokenBuffer[Loop], "\n\0");
@@ -238,7 +232,7 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
 
         Loop++;
     } while (Precedence);
-
+    
     return Loop;
 }
 
@@ -307,23 +301,7 @@ uint8_t makeFunction(uint32_t Location)
     TempStruct.StackOffset = StackOffset++ * 4;
     Variables[VariableCount++] = TempStruct;
 
-
-    //Getting Total size of the Function
-    uint32_t TotalSize = LoopOffset, PrecedenceGaming = 1;
-    do
-    {
-    	TotalSize++;
-    	if(TokenBuffer[TotalSize][0] == '{') ++PrecedenceGaming;
-    	else if(TokenBuffer[TotalSize][0] == '}') --PrecedenceGaming;
-
-    }while(PrecedenceGaming);
-
-
-    //Going through the function.
-    uint32_t FunctionReturn = LoopOffset;
-    do{
-        FunctionReturn = writeFunctionInstructions(TokenBuffer[Location], FunctionReturn, Variables, VariableCount, &ConditionalCount, 0);
-    }while(FunctionReturn != TotalSize);
+    writeFunctionInstructions(TokenBuffer[Location], LoopOffset, Variables, VariableCount, ConditionalCount);
 
     //If No Return Previous.
     if (!ReturnType)

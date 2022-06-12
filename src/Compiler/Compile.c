@@ -335,16 +335,15 @@ uint8_t compile(const uint8_t* FileLocation, const uint8_t* OutputLocation)
     if (sortNames()) return 9;
 
     //Generate IL for Middleware.
-    FILE* GamerFile = fopen("/home/badnursemain/eclipse-workspace/WendLang/UWU.wil", "rb");
+    FILE* GamerFile = fopen("C:/Users/joshm/Desktop/Pascal/UWU.wil", "rb");
     if (GamerFile)
     {
-        remove("/home/badnursemain/eclipse-workspace/WendLang/UWU.wil");
+        remove("C:/Users/joshm/Desktop/Pascal/UWU.wil");
         fclose(GamerFile);
     }
 
     //Turn Frontend into Intermediate Language.
-    GamerFile = fopen("/home/badnursemain/eclipse-workspace/WendLang/UWU.wil", "ab");
+    GamerFile = fopen("C:/Users/joshm/Desktop/Pascal/UWU.wil", "ab");
     if (generateIntermediateLanguage(GamerFile)) return 10;
-    fclose(GamerFile);
     return 0;
 }

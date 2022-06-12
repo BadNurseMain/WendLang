@@ -97,7 +97,6 @@ void createTabOffset()
     return;
 }
 
-
 //VA For Creating ASM File.
 uint8_t* stringifyInstruction(uint8_t StringCount, ...)
 {
@@ -159,7 +158,6 @@ OrderStruct* getOrder(uint32_t* StartLocation)
 
         if (TokenBuffer[Loop][0] == '-')
         {
-
             if (!Orders[Subtraction].Count)
                 Orders[Subtraction].Locations = calloc(10, sizeof(uint32_t));
 
@@ -607,10 +605,6 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
         if (!strcmp(TokenBuffer[StartLocation - 3], Variables[x].Name))
             ReturnStruct = Variables[x];
 
-    for (uint32_t x = 0; x < VariableCount; x++)
-        if (!strcmp(TokenBuffer[StartLocation - 1], Variables[x].Name))
-            ReturnStruct = Variables[x];
-
     if (!ReturnStruct.Name) return ARTH_UNKNOWN_VAR;
 
     //For writing out Original Equation.
@@ -625,24 +619,7 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
     }
     else
     {
-        uint8_t VariableType[3] = { 0 };
-
-        switch (ReturnStruct.Type)
-        {
-        case 1:
-            strcpy(VariableType, "u1");
-            break;
-
-        case 2:
-            strcpy(VariableType, "u2");
-            break;
-
-        case 3:
-            strcpy(VariableType, "u4");
-            break;
-        }
-
-        String = stringifyInstruction(5, "; ", ReturnStruct.Name, " : ", VariableType, "{\0");
+        String = stringifyInstruction(5, "; ", ReturnStruct.Name, " : ", ReturnStruct.Type, "{\0");
         fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
     }
@@ -776,6 +753,8 @@ cleanup:
 }
 
 //------------------------------------ CONDITIONALS -------------------------------------------------
+extern uint8_t getVariableSize(const uint8_t* Type);
+
 uint8_t getConditionalOperator(uint8_t* Operator)
 {
     switch (Operator[0])
@@ -792,7 +771,7 @@ uint8_t getConditionalOperator(uint8_t* Operator)
     return 0;
 }
 
-uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint32_t* ConditionalCount, uint32_t PrecedenceCount)
+uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint32_t ConditionalCount, uint8_t OptionalParam)
 {
     uint8_t* String;
 
@@ -801,7 +780,7 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
 
     strcpy(JumpName, FunctionName);
 
-    sprintf(ConditionalBuffer, "%d", *ConditionalCount);
+    sprintf(ConditionalBuffer, "%d", ConditionalCount);
     strcat(JumpName, ConditionalBuffer);
 
     uint32_t Loop = StartLocation;
@@ -895,7 +874,7 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
             free(String);
         }
 
-        uint32_t ReturnValue = writeFunctionInstructions(FunctionName, StartLocation + 5, Variables, VariableCount, ConditionalCount, ++PrecedenceCount);
+        uint32_t ReturnValue = writeFunctionInstructions(FunctionName, StartLocation + 5, Variables, VariableCount, ConditionalCount);
 
         String = stringifyInstruction(3, JumpName, ": ", END);
         fwrite(String, 1, strlen(String), IntermediateFile);
