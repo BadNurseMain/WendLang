@@ -79,10 +79,22 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
         //For comments to be ignored.
         if (Buffer[y] == '#')
         {
-            while (Buffer[x] != '\n') {
-                printf("%c", Buffer[x]);
+            //Double Comment.
+            if(Buffer[y + 1] == '#')
+            {
+                x += 2;
+                do
+                {
+                    if (Buffer[x] == '#')
+                        if (Buffer[x + 1] == '#')break;
+                    x++;
+                } while (1);
+
                 x++;
+                continue;
             }
+
+            while (Buffer[x] != '\n') x++;
             continue;
         }
 
@@ -122,7 +134,38 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
 
         Syntax:
             //Get Token Before Syntax.
-            if (Buffer[y - 1] == ' ' || Buffer[y - 1] == '(' || Buffer[y - 1] == ')' || Buffer[y - 1] == '{' || Buffer[y - 1] == '}' || Buffer[y - 1] == '\r' || Buffer[y - 1] == '\n' || Buffer[y - 1] == '\t') goto SyntaxStore;
+           // if (Buffer[y - 1] == ' ' || Buffer[y - 1] == '(' || Buffer[y - 1] == ')' || Buffer[y - 1] == '{' || Buffer[y - 1] == '}' || Buffer[y - 1] == '\r' || Buffer[y - 1] == '\n' || Buffer[y - 1] == '\t') goto SyntaxStore;
+
+            switch (Buffer[y - 1])
+            {
+                case ' ': goto SyntaxStore;
+                case '(': goto SyntaxStore;
+                case ')': goto SyntaxStore;
+                case '{': goto SyntaxStore;
+                case '}': goto SyntaxStore;
+                case '\r': goto SyntaxStore;
+                case '\n': goto SyntaxStore;
+                case '\t': goto SyntaxStore;
+            }
+
+            if(Buffer[y] == '*')
+            {
+                if (Buffer[y - 1] == '4' || Buffer[y - 1] == '2' || Buffer[y - 1] == '1')
+                {
+                    if (Buffer[y - 2] == 'u')
+                    {
+                        TokenBuffer[TokenCount] = malloc(4);
+                        TokenBuffer[TokenCount][0] = Buffer[y - 2];
+                        TokenBuffer[TokenCount][1] = Buffer[y - 1];
+                        TokenBuffer[TokenCount][2] = Buffer[y];
+                        TokenBuffer[TokenCount++][3] = '\0';
+
+                        x = ++y;
+                        goto LoopStart;
+                    }
+
+                }
+            }
 
             TokenBuffer[TokenCount] = malloc(y - x);
             if (!TokenBuffer[TokenCount]) return BUFFER_INIT_ERROR;

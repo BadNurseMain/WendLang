@@ -54,13 +54,16 @@ uint8_t getVariableSize(const uint8_t* Type)
 {
     if (!strcmp(Type, "u4")) return 3;
     else if (!strcmp(Type, "s4")) return 3 + (1 << 7);
+    else if (!strcmp(Type, "u4*")) return 3 + (1 << 6);
 
     if (!strcmp(Type, "u2")) return 2;
     else if (!strcmp(Type, "s2")) return 2 + (1 << 7);
+    else if (!strcmp(Type, "u2*")) return 2 + (1 << 6);
 
     if (!strcmp(Type, "u1")) return 1;
     else if (!strcmp(Type, "s1")) return 1 + (1 << 7);
-
+    else if (!strcmp(Type, "u1*")) return 1 + (1 << 6);
+    
     return 0;
 }
 
