@@ -26,8 +26,8 @@
 #define RETURN_TYPE_VAL (uint8_t) 1 << 1
 
 
-//OutputFile.
-extern FILE* OutputFile;
+//IntermediateFile.
+extern FILE* IntermediateFile;
 
 //Global Variables.
 typedef struct
@@ -44,11 +44,9 @@ extern uint32_t PublicVariableCount;
 extern uint8_t** TokenBuffer;
 extern uint32_t TokenCount;
 
-extern FILE* IntermediateFile;
-
 //Externs.
 extern uint8_t* stringifyInstruction(uint8_t StringCount, ...);
-
+extern void createTabOffset();
 //Used later for Complex Arith.
 uint8_t getVariableSize(const uint8_t* Type)
 {
@@ -63,7 +61,7 @@ uint8_t getVariableSize(const uint8_t* Type)
     if (!strcmp(Type, "u1")) return 1;
     else if (!strcmp(Type, "s1")) return 1 + (1 << 7);
     else if (!strcmp(Type, "u1*")) return 1 + (1 << 6);
-    
+
     return 0;
 }
 
@@ -163,14 +161,14 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
                 if (ReturnType)
                     if (ReturnType != RETURN_TYPE_VAL) return FN_RETURN_INVAL;
 
-                //Clearing Function Stack.                
+                //Clearing Function Stack.
                 uint8_t* String = "pop eax \n\0";
                 for (uint32_t x = VariableCount; x > ParameterCount; x--)
-                    fwrite(String, 1, strlen(String), OutputFile);
+                	fwrite(String, 1, strlen(String), IntermediateFile);
 
                 //Storing Return Value.
                 String = stringifyInstruction(5, "mov ebx, ", TokenBuffer[Loop + 1], "\n\0", "ret ", "\n\0");
-                fwrite(String, 1, strlen(String), OutputFile);
+                fwrite(String, 1, strlen(String), IntermediateFile);
                 free(String);
 
                 ReturnType = RETURN_TYPE_VAL;
@@ -181,14 +179,14 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
             if (ReturnType)
                 if (ReturnType != RETURN_TYPE_VOID) return FN_RETURN_INVAL;
 
-            //Clearing Function Stack.                
+            //Clearing Function Stack.
             uint8_t* String = "pop eax \n\0";
             for (uint32_t x = 0; x < VariableCount; x++)
-                fwrite(String, 1, strlen(String), OutputFile);
+               fwrite(String, 1, strlen(String), IntermediateFile);
 
             //Returning.
             String = stringifyInstruction(2, TokenBuffer[Loop], "\n\0");
-            fwrite(String, 1, strlen(String), OutputFile);
+            fwrite(String, 1, strlen(String), IntermediateFile);
             free(String);
 
             ReturnType = RETURN_TYPE_VOID;
@@ -230,7 +228,7 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
 
         Loop++;
     } while (Precedence);
-    
+
     return Loop;
 }
 
@@ -300,23 +298,23 @@ uint8_t makeFunction(uint32_t Location)
     Variables[VariableCount++] = TempStruct;
 
     writeFunctionInstructions(TokenBuffer[Location], LoopOffset, Variables, VariableCount, ConditionalCount);
-   
+
     //If No Return Previous.
     if (!ReturnType)
     {
-        //Clearing Function Stack.                
+        //Clearing Function Stack.
         String = "pop eax \n\0";
         for (uint32_t x = VariableCount; x > ParameterCount; x--)
-            fwrite(String, 1, strlen(String), OutputFile);
+            fwrite(String, 1, strlen(String), IntermediateFile);
 
         //Returning.
         String = stringifyInstruction(2, "ret", "\n\0");
-        fwrite(String, 1, strlen(String), OutputFile);
+        fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
     }
 
     free(Variables);
-    fwrite("\n\n\0", 1, strlen("\n\n\0"), OutputFile);
+    fwrite("\n\n\0", 1, strlen("\n\n\0"), IntermediateFile);
     return 0;
 }
 
@@ -336,11 +334,11 @@ uint8_t callFunction(uint8_t* FunctionName, uint8_t ReturnRegister, uint16_t Par
             for (uint16_t y = 0; y < ParameterCount; y++)
             {
                 String = stringifyInstruction(3, "mov esi, ", Buffer[y], "\n\0");
-                fwrite(String, 1, strlen(String), OutputFile);
+                fwrite(String, 1, strlen(String), IntermediateFile);
                 free(String);
 
                 String = stringifyInstruction(2, "push esi", "\n\0");
-                fwrite(String, 1, strlen(String), OutputFile);
+                fwrite(String, 1, strlen(String), IntermediateFile);
                 free(String);
             }
 
@@ -349,7 +347,7 @@ uint8_t callFunction(uint8_t* FunctionName, uint8_t ReturnRegister, uint16_t Par
 
 StartCall:
     String = stringifyInstruction(3, "call ", FunctionName, "\n\0");
-    fwrite(String, 1, strlen(String), OutputFile);
+    fwrite(String, 1, strlen(String), IntermediateFile);
     free(String);
 
     if (ReturnRegister)
@@ -357,14 +355,14 @@ StartCall:
         extern uint8_t REGISTERS[4][7][4];
 
         String = stringifyInstruction(4, "mov ", REGISTERS[3][ReturnRegister - 1], ", ebx", "\n\0");
-        fwrite(String, 1, strlen(String), OutputFile);
+        fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
     }
 
     String = stringifyInstruction(2, "pop esi", "\n\0");
     //Clearing up Stack from Previous Function.
     for (uint16_t x = 0; x < ParameterCount; x++)
-        fwrite(String, 1, strlen(String), OutputFile);
+        fwrite(String, 1, strlen(String), IntermediateFile);
 
     free(String);
     return 0;

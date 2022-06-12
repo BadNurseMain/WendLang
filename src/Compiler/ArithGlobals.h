@@ -37,7 +37,7 @@ uint8_t INSTRUCTIONS[12][5] =
     "shl ",
     "shr ",
     "jl ",
-    "jr "
+    "jg "
 };
 
 //Stack Specific.

@@ -1,4 +1,4 @@
-﻿#include "Compile.h"
+#include "Compile.h"
 #include "WIL.h"
 
 #ifndef ERR_DBG
@@ -134,8 +134,6 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
 
         Syntax:
             //Get Token Before Syntax.
-           // if (Buffer[y - 1] == ' ' || Buffer[y - 1] == '(' || Buffer[y - 1] == ')' || Buffer[y - 1] == '{' || Buffer[y - 1] == '}' || Buffer[y - 1] == '\r' || Buffer[y - 1] == '\n' || Buffer[y - 1] == '\t') goto SyntaxStore;
-
             switch (Buffer[y - 1])
             {
                 case ' ': goto SyntaxStore;
@@ -337,16 +335,15 @@ uint8_t compile(const uint8_t* FileLocation, const uint8_t* OutputLocation)
     if (sortNames()) return 9;
 
     //Generate IL for Middleware.
-    FILE* GamerFile = fopen("UWU.wil", "rb");
+    FILE* GamerFile = fopen("/home/badnursemain/Desktop/UWU.wil", "rb");
     if (GamerFile)
     {
-        remove("UWU.wil");
+        remove("/home/badnursemain/Desktop/UWU.wil");
         fclose(GamerFile);
     }
 
     //Turn Frontend into Intermediate Language.
-    GamerFile = fopen("C:/Users/joshm/Desktop/Pascal/UWU.wil", "ab");
+    GamerFile = fopen("/home/badnursemain/Desktop/UWU.wil", "ab");
     if (generateIntermediateLanguage(GamerFile)) return 10;
-    
     return 0;
 }

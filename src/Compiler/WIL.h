@@ -11,5 +11,3 @@
 #endif
 
 uint8_t generateIntermediateLanguage(FILE* ReturnFile);
-
-uint8_t convertILtoASM();
