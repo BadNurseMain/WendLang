@@ -1,5 +1,5 @@
-#include "Func.h"
 #include "Arith.h"
+#include "Func.h"
 
 #ifndef ERR_DBG
 #define ERR_DBG
@@ -25,8 +25,9 @@
 #define RETURN_TYPE_VOID (uint8_t) 1
 #define RETURN_TYPE_VAL (uint8_t) 1 << 1
 
-//OutputFile.
-extern FILE* OutputFile;
+
+//IntermediateFile.
+extern FILE* IntermediateFile;
 
 //Global Variables.
 typedef struct
@@ -45,31 +46,26 @@ extern uint32_t TokenCount;
 
 //Externs.
 extern uint8_t* stringifyInstruction(uint8_t StringCount, ...);
-
+extern void createTabOffset();
 //Used later for Complex Arith.
 uint8_t getVariableSize(const uint8_t* Type)
 {
-    if (!strcmp(Type, "u4")) return 4;
-    else if (!strcmp(Type, "s4")) return 4 + (1 << 7);
+    if (!strcmp(Type, "u4")) return 3;
+    else if (!strcmp(Type, "s4")) return 3 + (1 << 7);
+    else if (!strcmp(Type, "u4*")) return 3 + (1 << 6);
 
     if (!strcmp(Type, "u2")) return 2;
     else if (!strcmp(Type, "s2")) return 2 + (1 << 7);
+    else if (!strcmp(Type, "u2*")) return 2 + (1 << 6);
 
     if (!strcmp(Type, "u1")) return 1;
     else if (!strcmp(Type, "s1")) return 1 + (1 << 7);
+    else if (!strcmp(Type, "u1*")) return 1 + (1 << 6);
 
     return 0;
 }
 
-void printVar(LocalNameStruct* Variables, uint32_t VariableCount)
-{
-    for (uint32_t x = 0; x < VariableCount; x++)
-        printf("Name: %s, Stack:%u \n", Variables[x].Name, Variables[x].StackOffset);
-
-    return;
-}
-
-inline uint16_t getParamCount(uint32_t Location)
+uint16_t getParamCount(uint32_t Location)
 {
     if (TokenBuffer[++Location][0] != '(') return 0;
 
@@ -77,7 +73,7 @@ inline uint16_t getParamCount(uint32_t Location)
 
     do
     {
-        if(TokenBuffer[Location][0] == ':')
+        if (TokenBuffer[Location][0] == ':')
         {
             Count++;
             Location += 2;
@@ -106,16 +102,141 @@ uint16_t getFunctionParams(uint32_t Location)
     return Count;
 }
 
+uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint32_t ConditionalCount)
+{
+    uint32_t Precedence = 0, Loop = StartLocation, StackOffset = Variables[VariableCount - 1].StackOffset;
+    uint32_t ReturnType = 0, ParameterCount = getParamCount(StartLocation);
+    LocalNameStruct TempStruct = { 0 };
+
+    do
+    {
+        if (TokenBuffer[Loop][0] == '{') ++Precedence;
+        else if (TokenBuffer[Loop][0] == '}') --Precedence;
+
+        if (TokenBuffer[Loop][0] == '=')
+        {
+            uint8_t Type = 0;
+            if (TokenBuffer[Loop - 2][0] == ':')
+            {
+                TempStruct.Name = TokenBuffer[Loop - 3];
+                TempStruct.StackOffset = 4 * StackOffset++;
+
+                //Getting Size.
+                TempStruct.Type = getVariableSize(TokenBuffer[Loop - 1]);
+                if (!TempStruct.Type) return ARTH_INVALID_SIZE;
+
+                Variables[VariableCount++] = TempStruct;
+                Type = ARTH_TYPE_STACK;
+
+                for (uint32_t y = 0; y < VariableCount; y++)
+                    if (!strcmp(TokenBuffer[Loop - 3], Variables[y].Name))
+                        Loop = writeArithmeticOperations(2, Loop, Variables, VariableCount, Type);
+                continue;
+            }
+
+            for (uint32_t y = 0; y < VariableCount; y++)
+            {
+                if (!strcmp(TokenBuffer[Loop - 1], Variables[y].Name))
+                {
+                    Loop = writeArithmeticOperations(2, Loop, Variables, VariableCount, Type);
+                    break;
+                }
+            }
+
+            continue;
+        }
+
+        if (!strcmp("if", TokenBuffer[Loop]))
+        {
+            Loop = writeConditionalOperations(FunctionName, Loop + 1, Variables, VariableCount, ++ConditionalCount, 0);
+            if (!strcmp(TokenBuffer[Loop], "fn")) return Loop;
+        }
+
+        if (!strcmp(TokenBuffer[Loop], "ret"))
+        {
+            printf("Return: %s Value: %d \n", TokenBuffer[Loop + 1], TokenBuffer[Loop + 1][0]);
+
+            if (TokenBuffer[Loop + 1][0] >= '0' && TokenBuffer[Loop + 1][0] <= '9')
+            {
+                if (ReturnType)
+                    if (ReturnType != RETURN_TYPE_VAL) return FN_RETURN_INVAL;
+
+                //Clearing Function Stack.
+                uint8_t* String = "pop eax \n\0";
+                for (uint32_t x = VariableCount; x > ParameterCount; x--)
+                	fwrite(String, 1, strlen(String), IntermediateFile);
+
+                //Storing Return Value.
+                String = stringifyInstruction(5, "mov ebx, ", TokenBuffer[Loop + 1], "\n\0", "ret ", "\n\0");
+                fwrite(String, 1, strlen(String), IntermediateFile);
+                free(String);
+
+                ReturnType = RETURN_TYPE_VAL;
+                Loop += 3;
+                continue;
+            }
+
+            if (ReturnType)
+                if (ReturnType != RETURN_TYPE_VOID) return FN_RETURN_INVAL;
+
+            //Clearing Function Stack.
+            uint8_t* String = "pop eax \n\0";
+            for (uint32_t x = 0; x < VariableCount; x++)
+               fwrite(String, 1, strlen(String), IntermediateFile);
+
+            //Returning.
+            String = stringifyInstruction(2, TokenBuffer[Loop], "\n\0");
+            fwrite(String, 1, strlen(String), IntermediateFile);
+            free(String);
+
+            ReturnType = RETURN_TYPE_VOID;
+            Loop += 2;
+            continue;
+        }
+
+        if (TokenBuffer[Loop + 1][0] == '(')
+        {
+            for (uint32_t x = 0; x < PublicFunctionCount; x++)
+            {
+                if (!strcmp(TokenBuffer[Loop], PublicNameBuffer[FUNCTIONNAME][x].Name))
+                {
+                    uint16_t ParamCount = getFunctionParams(Loop);
+
+                    if (ParamCount)
+                    {
+                        uint8_t** Buffer = malloc(sizeof(uint8_t*) * ParamCount);
+                        if (!Buffer) return 1;
+
+                        for (uint16_t y = 0; y < ParamCount; y++)
+                            Buffer[y] = TokenBuffer[Loop + 3 + (y * 2)];
+
+                        callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, ParamCount, Buffer);
+                        free(Buffer);
+
+                        Loop = Loop + getFunctionParams(Loop) * 2 + 4;
+                        continue;
+                    }
+
+                    callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, 0, 0);
+                    Loop += 4;
+                    continue;
+                }
+            }
+
+            return FN_CALL_UNKNOWN;
+        }
+
+        Loop++;
+    } while (Precedence);
+
+    return Loop;
+}
+
 uint8_t makeFunction(uint32_t Location)
 {
-    if(!strcmp(TokenBuffer[Location], "main"))
-    {
-        volatile int TempValue = 0;
-    }
-
     uint8_t* String = 0;
 
-    uint32_t ParameterCount = 0, VariableCount = 0, StackOffset = 0, Scope = 1;
+    uint32_t ParameterCount = 0, VariableCount = 0, StackOffset = 0, Scope = 1, ConditionalCount = 0;
     LocalNameStruct* Variables = malloc(sizeof(LocalNameStruct) * 10);
     if (!Variables) return MALLOC_NO_MEM;
 
@@ -152,13 +273,13 @@ uint8_t makeFunction(uint32_t Location)
             LocalNameStruct TempStruct = { 0 };
             TempStruct.Name = TokenBuffer[LoopOffset];
             TempStruct.StackOffset = (4 * StackOffset++);
-            
+
             //Getting Size.
             TempStruct.Type = getVariableSize(TokenBuffer[LoopOffset + 2]);
             if (!TempStruct.Type) return ARTH_INVALID_SIZE;
 
             Variables[VariableCount++] = TempStruct;
-            
+
             //Used for Clearing Memory After Function.
             ParameterCount++;
             LoopOffset += 3;
@@ -168,7 +289,7 @@ uint8_t makeFunction(uint32_t Location)
         LoopOffset++;
     } while (TokenBuffer[LoopOffset][0] != ')');
 
-    LoopOffset += 2;
+    LoopOffset++;
 
     //Specifically for Function Calls.
     LocalNameStruct TempStruct = { 0 };
@@ -176,144 +297,24 @@ uint8_t makeFunction(uint32_t Location)
     TempStruct.StackOffset = StackOffset++ * 4;
     Variables[VariableCount++] = TempStruct;
 
-    printVar(Variables, VariableCount);
-    printf("Total Params: %u \n", getParamCount(Location));
+    writeFunctionInstructions(TokenBuffer[Location], LoopOffset, Variables, VariableCount, ConditionalCount);
 
-    do
-    {
-        //Changing Existing Variable.
-        if (TokenBuffer[LoopOffset][0] == '=')
-        {
-            uint8_t Type = 0;
-            if (TokenBuffer[LoopOffset - 2][0] == ':')
-            {
-                TempStruct.Name = TokenBuffer[LoopOffset - 3];
-                TempStruct.StackOffset = 4 * StackOffset++;
-
-                //Getting Size.
-                TempStruct.Type = getVariableSize(TokenBuffer[LoopOffset - 1]);
-                if (!TempStruct.Type) return ARTH_INVALID_SIZE;
-
-                Variables[VariableCount++] = TempStruct;
-                Type = 1;
-
-                for (uint32_t y = 0; y < VariableCount; y++)
-                    if (!strcmp(TokenBuffer[LoopOffset - 3], Variables[y].Name))
-                        LoopOffset = complexArith(LoopOffset, Variables, VariableCount, Type);
-                continue;
-            }
-
-            for (uint32_t y = 0; y < VariableCount; y++)
-            {
-                printf("Variable Name: %s \n", Variables[y].Name);
-
-                if (!strcmp(TokenBuffer[LoopOffset - 1], Variables[y].Name))
-                    LoopOffset = complexArith(LoopOffset, Variables, VariableCount, Type);
-            }
-
-            continue;
-        }
-
-        if (TokenBuffer[LoopOffset][0] == '{' || TokenBuffer[LoopOffset][0] == '}')
-        {
-            Scope += (TokenBuffer[LoopOffset][0] - 124) * -1;
-            LoopOffset++;
-            continue;
-        }
-
-        if (!strcmp(TokenBuffer[LoopOffset], "ret"))
-        {
-            printf("Return: %s Value: %d \n", TokenBuffer[LoopOffset + 1], TokenBuffer[LoopOffset + 1][0]);
-
-            if (TokenBuffer[LoopOffset + 1][0] >= '0' && TokenBuffer[LoopOffset + 1][0] <= '9')
-            {
-                if (ReturnType)
-                    if (ReturnType != RETURN_TYPE_VAL) return FN_RETURN_INVAL;
-
-                //Clearing Function Stack.                
-                String = "pop eax \n\0";
-                for (uint32_t x = VariableCount; x > ParameterCount; x--)
-                    fwrite(String, 1, strlen(String), OutputFile);
-
-                //Storing Return Value.
-                String = stringifyInstruction(5, "mov ebx, ", TokenBuffer[LoopOffset + 1], "\n\0", "ret ", "\n\0");
-                fwrite(String, 1, strlen(String), OutputFile);
-                free(String);
-
-                ReturnType = RETURN_TYPE_VAL;
-                LoopOffset += 3;
-                continue;
-            }
-
-            if (ReturnType)
-                if (ReturnType != RETURN_TYPE_VOID) return FN_RETURN_INVAL;
-
-            //Clearing Function Stack.                
-            String = "pop eax \n\0";
-            for (uint32_t x = 0; x < VariableCount; x++)
-                fwrite(String, 1, strlen(String), OutputFile);
-
-            //Returning.
-            String = stringifyInstruction(2, TokenBuffer[LoopOffset], "\n\0");
-            fwrite(String, 1, strlen(String), OutputFile);
-            free(String);
-
-            ReturnType = RETURN_TYPE_VOID;
-            LoopOffset += 2;
-            continue;
-        }
-
-        if (TokenBuffer[LoopOffset + 1][0] == '(')
-        {
-            for (uint32_t x = 0; x < PublicFunctionCount; x++)
-            {
-                if (!strcmp(TokenBuffer[LoopOffset], PublicNameBuffer[FUNCTIONNAME][x].Name))
-                {
-                    uint16_t ParamCount = getFunctionParams(LoopOffset);
-
-                    if (ParamCount)
-                    {
-                        uint8_t** Buffer = malloc(sizeof(uint8_t*) * ParamCount);
-                        if (!Buffer) return 1;
-
-                        for (uint16_t y = 0; y < ParamCount; y++)
-                            Buffer[y] = TokenBuffer[LoopOffset + 3 + (y * 2)];
-
-                        callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, ParamCount, Buffer);
-                        free(Buffer);
-                        
-                        LoopOffset = LoopOffset + getFunctionParams(LoopOffset) * 2 + 4;
-                        continue;
-                    }
-
-                    callFunction(PublicNameBuffer[FUNCTIONNAME][x].Name, 0, 0, 0);
-                    LoopOffset += 4;
-                    continue;
-                }
-            }
-
-            return FN_CALL_UNKNOWN;
-        }
-
-        LoopOffset++;
-    } while (Scope && TokenBuffer[LoopOffset][0] != '}');
-    
     //If No Return Previous.
-    if(!ReturnType)
+    if (!ReturnType)
     {
-        //Clearing Function Stack.                
+        //Clearing Function Stack.
         String = "pop eax \n\0";
         for (uint32_t x = VariableCount; x > ParameterCount; x--)
-            fwrite(String, 1, strlen(String), OutputFile);
+            fwrite(String, 1, strlen(String), IntermediateFile);
 
         //Returning.
         String = stringifyInstruction(2, "ret", "\n\0");
-        fwrite(String, 1, strlen(String), OutputFile);
+        fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
     }
 
     free(Variables);
-    fwrite("\n\n\0", 1, strlen("\n\n\0"), OutputFile);
+    fwrite("\n\n\0", 1, strlen("\n\n\0"), IntermediateFile);
     return 0;
 }
 
@@ -322,22 +323,22 @@ uint8_t callFunction(uint8_t* FunctionName, uint8_t ReturnRegister, uint16_t Par
     uint8_t* String = 0;
 
     //Checking for Valid Function.
-    for(uint32_t x = 0; x < PublicFunctionCount; x++)
-        if(!strcmp(FunctionName, PublicNameBuffer[FUNCTIONNAME][x].Name))
+    for (uint32_t x = 0; x < PublicFunctionCount; x++)
+        if (!strcmp(FunctionName, PublicNameBuffer[FUNCTIONNAME][x].Name))
         {
             //Checking Parameter Count.
             uint32_t ParamOffset = getParamCount(PublicNameBuffer[FUNCTIONNAME][x].Location);
             if (ParamOffset == FN_CALL_INVALID) return FN_CALL_INVALID;
             if (ParamOffset != ParameterCount) return FN_LACK_PARAMS;
 
-            for(uint16_t y = 0; y < ParameterCount; y++)
+            for (uint16_t y = 0; y < ParameterCount; y++)
             {
                 String = stringifyInstruction(3, "mov esi, ", Buffer[y], "\n\0");
-                fwrite(String, 1, strlen(String), OutputFile);
+                fwrite(String, 1, strlen(String), IntermediateFile);
                 free(String);
 
                 String = stringifyInstruction(2, "push esi", "\n\0");
-                fwrite(String, 1, strlen(String), OutputFile);
+                fwrite(String, 1, strlen(String), IntermediateFile);
                 free(String);
             }
 
@@ -346,23 +347,23 @@ uint8_t callFunction(uint8_t* FunctionName, uint8_t ReturnRegister, uint16_t Par
 
 StartCall:
     String = stringifyInstruction(3, "call ", FunctionName, "\n\0");
-    fwrite(String, 1, strlen(String), OutputFile);
+    fwrite(String, 1, strlen(String), IntermediateFile);
     free(String);
 
-    if(ReturnRegister)
+    if (ReturnRegister)
     {
         extern uint8_t REGISTERS[4][7][4];
 
         String = stringifyInstruction(4, "mov ", REGISTERS[3][ReturnRegister - 1], ", ebx", "\n\0");
-        fwrite(String, 1, strlen(String), OutputFile);
+        fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
     }
 
     String = stringifyInstruction(2, "pop esi", "\n\0");
     //Clearing up Stack from Previous Function.
     for (uint16_t x = 0; x < ParameterCount; x++)
-        fwrite(String, 1, strlen(String), OutputFile);
-    
+        fwrite(String, 1, strlen(String), IntermediateFile);
+
     free(String);
     return 0;
 }
