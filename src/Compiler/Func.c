@@ -102,12 +102,10 @@ uint16_t getFunctionParams(uint32_t Location)
     return Count;
 }
 
-uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint32_t ConditionalCount)
+uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t* VariableCount, uint32_t ConditionalCount)
 {
     //For clearing stack later on.
-    uint32_t OriginalVariableCount = VariableCount;
-
-    uint32_t Precedence = 0, Loop = StartLocation, StackOffset = Variables[VariableCount - 1].StackOffset;
+    uint32_t Precedence = 0, Loop = StartLocation, StackOffset = Variables[*VariableCount - 1].StackOffset;
     uint32_t ReturnType = 0, ParameterCount = getParamCount(StartLocation);
     LocalNameStruct TempStruct = { 0 };
 
@@ -128,20 +126,20 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
                 TempStruct.Type = getVariableSize(TokenBuffer[Loop - 1]);
                 if (!TempStruct.Type) return ARTH_INVALID_SIZE;
 
-                Variables[VariableCount++] = TempStruct;
+                Variables[(*VariableCount)++] = TempStruct;
                 Type = ARTH_TYPE_STACK;
 
-                for (uint32_t y = 0; y < VariableCount; y++)
+                for (uint32_t y = 0; y < *VariableCount; y++)
                     if (!strcmp(TokenBuffer[Loop - 3], Variables[y].Name))
-                        Loop = writeArithmeticOperations(2, Loop, Variables, VariableCount, Type);
+                        Loop = writeArithmeticOperations(2, Loop, Variables, *VariableCount, Type);
                 continue;
             }
 
-            for (uint32_t y = 0; y < VariableCount; y++)
+            for (uint32_t y = 0; y < *VariableCount; y++)
             {
                 if (!strcmp(TokenBuffer[Loop - 1], Variables[y].Name))
                 {
-                    Loop = writeArithmeticOperations(2, Loop, Variables, VariableCount, Type);
+                    Loop = writeArithmeticOperations(2, Loop, Variables, *VariableCount, Type);
                     break;
                 }
             }
@@ -167,7 +165,7 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
 
                 //Clearing Function Stack.
                 uint8_t* String = "pop eax \n\0";
-                for (uint32_t x = VariableCount; x > ParameterCount; x--)
+                for (uint32_t x = *VariableCount; x > ParameterCount + 1; x--)
                     fwrite(String, 1, strlen(String), IntermediateFile);
 
                 //Storing Return Value.
@@ -185,7 +183,7 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
 
             //Clearing Function Stack.
             uint8_t* String = "pop eax \n\0";
-            for (uint32_t x = 0; x < VariableCount; x++)
+            for (uint32_t x = *VariableCount; x < ParameterCount + 1; x++)
                 fwrite(String, 1, strlen(String), IntermediateFile);
 
             //Returning.
@@ -301,14 +299,14 @@ uint8_t makeFunction(uint32_t Location)
     TempStruct.StackOffset = StackOffset++ * 4;
     Variables[VariableCount++] = TempStruct;
 
-    writeFunctionInstructions(TokenBuffer[Location], LoopOffset, Variables, VariableCount, ConditionalCount);
+    writeFunctionInstructions(TokenBuffer[Location], LoopOffset, Variables, &VariableCount, ConditionalCount);
 
     //If No Return Previous.
     if (!ReturnType)
     {
         //Clearing Function Stack.
         String = "pop eax \n\0";
-        for (uint32_t x = VariableCount; x > ParameterCount; x--)
+        for (uint32_t x = VariableCount; x > ParameterCount + 1; x--)
             fwrite(String, 1, strlen(String), IntermediateFile);
 
         //Returning.

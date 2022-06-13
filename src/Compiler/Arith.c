@@ -771,7 +771,7 @@ uint8_t getConditionalOperator(uint8_t* Operator)
     return 0;
 }
 
-uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint32_t ConditionalCount, uint8_t OptionalParam)
+uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t* VariableCount, uint32_t ConditionalCount, uint8_t OptionalParam)
 {
     uint8_t* String;
 
@@ -803,12 +803,12 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
     //Not Complex.
     if (getConditionalOperator(TokenBuffer[StartLocation + 2]))
     {
-        uint32_t VariableLocation = getLocalVariable(StartLocation + 1, Variables, VariableCount);
+        uint32_t VariableLocation = getLocalVariable(StartLocation + 1, Variables, *VariableCount);
         if (VariableLocation)
         {
             //Stringify Stack Offset.
             uint8_t StackOffset[12] = { 0 };
-            sprintf(StackOffset, "%d", Variables[VariableCount - 1].StackOffset - Variables[VariableLocation - 1].StackOffset);
+            sprintf(StackOffset, "%d", Variables[*VariableCount - 1].StackOffset - Variables[VariableLocation - 1].StackOffset);
 
             String = stringifyInstruction(7, MOVE, REGISTERS[3][0], VARSTART, REGISTERS[3][4], PLUS, StackOffset, VAREND);
             createTabOffset();
@@ -826,12 +826,12 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
         free(String);
 
     notComplexAssignTwo:
-        VariableLocation = getLocalVariable(StartLocation + 3, Variables, VariableCount);
+        VariableLocation = getLocalVariable(StartLocation + 3, Variables, *VariableCount);
         if (VariableLocation)
         {
             //Stringify Stack Offset.
             uint8_t StackOffset[12] = { 0 };
-            sprintf(StackOffset, "%d", Variables[VariableCount - 1].StackOffset - Variables[VariableLocation - 1].StackOffset);
+            sprintf(StackOffset, "%d", Variables[*VariableCount - 1].StackOffset - Variables[VariableLocation - 1].StackOffset);
 
             String = stringifyInstruction(7, MOVE, REGISTERS[3][3], VARSTART, REGISTERS[3][4], PLUS, StackOffset, VAREND);
             createTabOffset();
@@ -874,7 +874,18 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
             free(String);
         }
 
+        //Getting Original Count and Comparing it with the new one.
+        //So can clear variables.
+        uint32_t OriginalVariableCount = *VariableCount;
+
         uint32_t ReturnValue = writeFunctionInstructions(FunctionName, StartLocation + 5, Variables, VariableCount, ConditionalCount);
+
+        for(;OriginalVariableCount < *VariableCount;)
+        {
+        	createTabOffset();
+        	(*VariableCount)--;
+        	fwrite("pop eax\n", 1, 8, IntermediateFile);
+        }
 
         String = stringifyInstruction(3, JumpName, ": ", END);
         fwrite(String, 1, strlen(String), IntermediateFile);
