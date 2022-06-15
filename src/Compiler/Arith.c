@@ -595,7 +595,7 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
     if (TokenBuffer[StartLocation + 2][0] == ';')
     {
         if (isNotComplex(StartLocation, Variables, VariableCount, OptionalParam)) return 1;
-        else return StartLocation + 3;;
+        else return StartLocation + 3;
     }
 
     //Ensuring Return is Valid.
@@ -698,7 +698,7 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
             continue;
         }
 
-        //If Both are Equal.
+        //Perforn Arithmetic..
         if (PrecedenceMax == PrecedenceCount)
         {
             OrderBuffer[OrderNum++] = getOrder(&MaxCount);
@@ -771,7 +771,7 @@ uint8_t getConditionalOperator(uint8_t* Operator)
     return 0;
 }
 
-uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t* VariableCount, uint32_t ConditionalCount, uint8_t OptionalParam)
+uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t* VariableCount, uint32_t* ConditionalCount, uint8_t OptionalParam)
 {
     uint8_t* String;
 
@@ -780,7 +780,7 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
 
     strcpy(JumpName, FunctionName);
 
-    sprintf(ConditionalBuffer, "%d", ConditionalCount);
+    sprintf(ConditionalBuffer, "%d", *ConditionalCount);
     strcat(JumpName, ConditionalBuffer);
 
     uint32_t Loop = StartLocation;

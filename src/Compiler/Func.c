@@ -102,7 +102,7 @@ uint16_t getFunctionParams(uint32_t Location)
     return Count;
 }
 
-uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t* VariableCount, uint32_t ConditionalCount)
+uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t* VariableCount, uint32_t* ConditionalCount)
 {
     //For clearing stack later on.
     uint32_t Precedence = 0, Loop = StartLocation, StackOffset = Variables[*VariableCount - 1].StackOffset;
@@ -149,7 +149,8 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
 
         if (!strcmp("if", TokenBuffer[Loop]))
         {
-            Loop = writeConditionalOperations(FunctionName, Loop + 1, Variables, VariableCount, ++ConditionalCount, 0);
+        	*ConditionalCount += 1;
+            Loop = writeConditionalOperations(FunctionName, Loop + 1, Variables, VariableCount, ConditionalCount, 0);
             continue;
             if (!strcmp(TokenBuffer[Loop], "fn")) return Loop;
         }
@@ -299,7 +300,7 @@ uint8_t makeFunction(uint32_t Location)
     TempStruct.StackOffset = StackOffset++ * 4;
     Variables[VariableCount++] = TempStruct;
 
-    writeFunctionInstructions(TokenBuffer[Location], LoopOffset, Variables, &VariableCount, ConditionalCount);
+    writeFunctionInstructions(TokenBuffer[Location], LoopOffset, Variables, &VariableCount, &ConditionalCount);
 
     //If No Return Previous.
     if (!ReturnType)
