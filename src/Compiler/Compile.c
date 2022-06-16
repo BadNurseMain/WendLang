@@ -107,27 +107,31 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
             switch (Buffer[y])
             {
                 //Priority.
-            case '(': goto Syntax;
-            case ')': goto Syntax;
+                case '(': goto Syntax;
+                case ')': goto Syntax;
 
-            case ',': goto Syntax;
+                case ',': goto Syntax;
 
-            case '{': goto Syntax;
-            case '}': goto Syntax;
+                case '{': goto Syntax;
+                case '}': goto Syntax;
+
+                //Arrays & Pointers.
+                case '[': goto Syntax;
+                case ']': goto Syntax;
 
                 //Operators.
-            case '+': goto Syntax;
-            case '-': goto Syntax;
-            case '/': goto Syntax;
-            case '*': goto Syntax;
+                case '+': goto Syntax;
+                case '-': goto Syntax;
+                case '/': goto Syntax;
+                case '*': goto Syntax;
 
                 //Bitwise
-            case '&': goto Syntax;
-            case '^': goto Syntax;
-            case '|': goto Syntax;
+                case '&': goto Syntax;
+                case '^': goto Syntax;
+                case '|': goto Syntax;
 
                 //Declaration.
-            case ';': goto Syntax;
+                case ';': goto Syntax;
             }
             y++;
             continue;
@@ -141,6 +145,8 @@ uint8_t getTokens(uint8_t* Buffer, uint32_t Size)
                 case ')': goto SyntaxStore;
                 case '{': goto SyntaxStore;
                 case '}': goto SyntaxStore;
+                case '[': goto SyntaxStore;
+                case ']': goto SyntaxStore;
                 case '\r': goto SyntaxStore;
                 case '\n': goto SyntaxStore;
                 case '\t': goto SyntaxStore;
@@ -335,15 +341,15 @@ uint8_t compile(const uint8_t* FileLocation, const uint8_t* OutputLocation)
     if (sortNames()) return 9;
 
     //Generate IL for Middleware.
-    FILE* GamerFile = fopen("/home/badnursemain/eclipse-workspace/WendLang/UWU.wil", "rb");
+    FILE* GamerFile = fopen("C:/Users/joshm/Desktop/Pascal/UWU.wil", "rb");
     if (GamerFile)
     {
-        remove("/home/badnursemain/eclipse-workspace/WendLang/UWU.wil");
+        remove("C:/Users/joshm/Desktop/Pascal/UWU.wil");
         fclose(GamerFile);
     }
 
     //Turn Frontend into Intermediate Language.
-    GamerFile = fopen("/home/badnursemain/eclipse-workspace/WendLang/UWU.wil", "ab");
+    GamerFile = fopen("C:/Users/joshm/Desktop/Pascal/UWU.wil", "ab");
     if (generateIntermediateLanguage(GamerFile)) return 10;
     return 0;
 }

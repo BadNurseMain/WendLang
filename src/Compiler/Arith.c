@@ -588,7 +588,6 @@ beginCalculation:
 uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t VariableCount, uint8_t OptionalParam)
 {
     PublicTabOffset = TabOffset;
-
     uint8_t* String = 0;
 
     //Not a Complex Equation.
@@ -601,11 +600,45 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
     //Ensuring Return is Valid.
     LocalNameStruct ReturnStruct = { 0 };
 
-    for (uint32_t x = 0; x < VariableCount; x++)
-        if (!strcmp(TokenBuffer[StartLocation - 3], Variables[x].Name))
-            ReturnStruct = Variables[x];
+    if(OptionalParam == ARTH_TYPE_STACK)
+    {
+        for (uint32_t x = 0; x < VariableCount; x++)
+            if (!strcmp(TokenBuffer[StartLocation - 3], Variables[x].Name))
+                ReturnStruct = Variables[x];
+    }
+    else if(TokenBuffer[StartLocation - 1][0] == ']')
+    {
+        for (uint32_t x = 0; x < VariableCount; x++)
+            if (!strcmp(TokenBuffer[StartLocation - 4], Variables[x].Name))
+                ReturnStruct = Variables[x];
+    }
+    else
+    {
+        for (uint32_t x = 0; x < VariableCount; x++)
+            if (!strcmp(TokenBuffer[StartLocation - 1], Variables[x].Name))
+                ReturnStruct = Variables[x];
+    }
 
     if (!ReturnStruct.Name) return ARTH_UNKNOWN_VAR;
+
+    //Getting Type Properties.
+    uint32_t ArrayLocation = 0, isArray = 0;
+
+    //is an Array.
+    if (ReturnStruct.Size)
+    {
+        if (TokenBuffer[StartLocation - 1][0] == ']')
+        {
+            uint8_t TempBuffer[32];
+            ArrayLocation = (uint32_t)strtol(TokenBuffer[StartLocation - 2], TempBuffer, 10);
+            isArray = 1;
+        }
+    }
+    else if (TokenBuffer[StartLocation - 1][0] == ']')
+    {
+        printf("Is not an Array or Pointer.\n");
+        return ARTH_WRONG_TYPE;
+    }
 
     //For writing out Original Equation.
     for (uint8_t x = 0; x < TabOffset; x++)
@@ -619,7 +652,24 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
     }
     else
     {
-        String = stringifyInstruction(5, "; ", ReturnStruct.Name, " : ", ReturnStruct.Type, "{\0");
+        uint8_t VariableType[3] = { 0 };
+
+        switch (ReturnStruct.Type)
+        {
+        case 1:
+            strcpy(VariableType, "u1");
+            break;
+
+        case 2:
+            strcpy(VariableType, "u2");
+            break;
+
+        case 3:
+            strcpy(VariableType, "u4");
+            break;
+        }
+
+        String = stringifyInstruction(5, "; ", ReturnStruct.Name, " : ", VariableType, "{\0");
         fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
     }
@@ -726,8 +776,9 @@ uint32_t writeArithmeticOperations(uint8_t TabOffset, uint32_t StartLocation, Lo
 
     //If No Conditions are Specified.
     uint8_t TempStack[12] = { 0 };
-    sprintf(TempStack, "%d", (Variables[VariableCount - 1].StackOffset * 4) - (ReturnStruct.StackOffset * 4));
-
+    if(isArray) sprintf(TempStack, "%d", Variables[VariableCount - 1].StackOffset - (ReturnStruct.StackOffset - (ReturnStruct.Size - (ArrayLocation + 1)) * 4));
+    else sprintf(TempStack, "%d", Variables[VariableCount - 1].StackOffset - ReturnStruct.StackOffset);
+    
     String = stringifyInstruction(9, MOVE, NEWVARSTART, REGISTERS[3][4], PLUS, TempStack, NEWVAREND, REGISTERS[3][0], "\n", END);
     for (uint8_t x = 0; x < PublicTabOffset; x++)
         fwrite("\t", 1, 1, IntermediateFile);

@@ -26,6 +26,9 @@
 #define RETURN_TYPE_VAL (uint8_t) 1 << 1
 
 
+//TODO: Fix Array Logic.
+//TODO: Improve Declaration and Assignment Operations.
+
 //IntermediateFile.
 extern FILE* IntermediateFile;
 
@@ -47,20 +50,24 @@ extern uint32_t TokenCount;
 //Externs.
 extern uint8_t* stringifyInstruction(uint8_t StringCount, ...);
 extern void createTabOffset();
+
 //Used later for Complex Arith.
 uint8_t getVariableSize(const uint8_t* Type)
 {
     if (!strcmp(Type, "u4")) return 3;
     else if (!strcmp(Type, "s4")) return 3 + (1 << 7);
     else if (!strcmp(Type, "u4*")) return 3 + (1 << 6);
+    else if (!strcmp(Type, "s4*")) return 3 + (1 << 6) + (1 << 7);
 
     if (!strcmp(Type, "u2")) return 2;
     else if (!strcmp(Type, "s2")) return 2 + (1 << 7);
     else if (!strcmp(Type, "u2*")) return 2 + (1 << 6);
+    else if (!strcmp(Type, "s2*")) return 2 + (1 << 6) + (1 << 7);
 
     if (!strcmp(Type, "u1")) return 1;
     else if (!strcmp(Type, "s1")) return 1 + (1 << 7);
     else if (!strcmp(Type, "u1*")) return 1 + (1 << 6);
+    else if (!strcmp(Type, "s1*")) return 1 + (1 << 6) + (1 << 7);
 
     return 0;
 }
@@ -114,25 +121,96 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
         if (TokenBuffer[Loop][0] == '{') ++Precedence;
         else if (TokenBuffer[Loop][0] == '}') --Precedence;
 
-        if (TokenBuffer[Loop][0] == '=')
+        //Declaring of new Variable.
+        if(TokenBuffer[Loop][0] == ':')
         {
-            uint8_t Type = 0;
-            if (TokenBuffer[Loop - 2][0] == ':')
-            {
-                TempStruct.Name = TokenBuffer[Loop - 3];
-                TempStruct.StackOffset = 4 * StackOffset++;
+            //Used for Containers.
+            if (TokenBuffer[Loop][1] == ':');
 
-                //Getting Size.
-                TempStruct.Type = getVariableSize(TokenBuffer[Loop - 1]);
+            const uint8_t Type = ARTH_TYPE_STACK;
+
+            //Means it is an Array.
+            if(TokenBuffer[Loop - 1][0] == ']')
+            {
+                TempStruct.Name = TokenBuffer[Loop - 4];
+                
+                //Conversion of String to Long, which is then used as an int.
+                uint8_t* Pointer = 0;
+                uint8_t* String = 0;
+                long Index = strtol(TokenBuffer[Loop - 2], &Pointer, 10);
+                
+                TempStruct.Type = getVariableSize(TokenBuffer[Loop + 1]);
+                TempStruct.Size = (uint16_t)Index;
+                
+                StackOffset += (uint32_t)Index;
+                TempStruct.StackOffset = 4 * (StackOffset++);
+
+                //Not a valid Type.
                 if (!TempStruct.Type) return ARTH_INVALID_SIZE;
 
                 Variables[(*VariableCount)++] = TempStruct;
-                Type = ARTH_TYPE_STACK;
 
-                for (uint32_t y = 0; y < *VariableCount; y++)
-                    if (!strcmp(TokenBuffer[Loop - 3], Variables[y].Name))
-                        Loop = writeArithmeticOperations(2, Loop, Variables, *VariableCount, Type);
+                //Check if New Variable is Assigned to.
+                if(TokenBuffer[Loop + 2][0] == '=')
+                {
+                
+                }
+                else if(TokenBuffer[Loop + 2][0] == ';')
+                {
+                    String = stringifyInstruction(10, "\t\t; ", TokenBuffer[Loop - 4], TokenBuffer[Loop - 3], TokenBuffer[Loop - 2], TokenBuffer[Loop - 1], " ", TokenBuffer[Loop], " ", TokenBuffer[Loop + 1], "\n\0");
+                    fwrite(String, 1, strlen(String), IntermediateFile);
+                    free(String);
+
+                    uint8_t OffsetBuffer[32] = {0};
+                    sprintf(OffsetBuffer, "%d", Index * 4);
+
+                    String = stringifyInstruction(3, "\t\tsub esp, ", OffsetBuffer, "\n\n\0");
+                    fwrite(String, 1, strlen(String), IntermediateFile);
+                    free(String);
+                    Loop += 3;
+                }
+
                 continue;
+            }
+
+            TempStruct.Name = TokenBuffer[Loop - 1];
+            TempStruct.StackOffset = 4 * StackOffset++;
+            TempStruct.Size = 0;
+
+            //Getting Size.
+            TempStruct.Type = getVariableSize(TokenBuffer[Loop + 1]);
+            if (!TempStruct.Type) return ARTH_INVALID_SIZE;
+
+            Variables[(*VariableCount)++] = TempStruct;
+
+            //Assignment.
+            if (TokenBuffer[Loop + 2][0] == '=') Loop = writeArithmeticOperations(2, Loop + 2, Variables, *VariableCount, Type);
+            else if (TokenBuffer[Loop + 2][0] == ';')
+            {
+                uint8_t* String = stringifyInstruction(5, "\t\t; ", TokenBuffer[Loop - 1]," : ",TokenBuffer[Loop + 1], "\n\0");
+                fwrite(String, 1, strlen(String), IntermediateFile);
+                free(String);
+                fwrite("\t\tpush eax\n\n\0", 1, strlen("\t\tpush eax\n\n\0"), IntermediateFile);
+                Loop += 3;
+            }
+            
+            continue;
+        }
+
+        if (TokenBuffer[Loop][0] == '=')
+        {
+            const uint8_t Type = 0;
+
+            if(TokenBuffer[Loop - 1][0] == ']')
+            {
+                for (uint32_t y = 0; y < *VariableCount; y++)
+                {
+                    if (!strcmp(TokenBuffer[Loop - 4], Variables[y].Name))
+                    {
+                        Loop = writeArithmeticOperations(2, Loop, Variables, *VariableCount, Type);
+                        break;
+                    }
+                }
             }
 
             for (uint32_t y = 0; y < *VariableCount; y++)

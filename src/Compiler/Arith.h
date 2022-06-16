@@ -21,6 +21,7 @@
 
 #define ARTH_INVALID_SIZE (uint8_t) 0xC0
 #define ARTH_UNKNOWN_VAR (uint8_t) 0xC1
+#define ARTH_WRONG_TYPE (uint8_t) 0xC2
 
 #define ARTH_TYPE_STACK (uint8_t) (1 << 7)
 #define ARTH_TYPE_STORE_A (uint8_t) 1
@@ -33,6 +34,7 @@ typedef struct
 {
     uint8_t* Name;
     uint8_t Type;
+    uint16_t Size;
     uint32_t StackOffset;
 } LocalNameStruct;
 #endif
