@@ -79,7 +79,8 @@ enum PrecedenceTable
     //Control flow.
     LessThan = 10,
     GreaterThan = 11,
-    Equality = 12
+    Equality = 12,
+	UnEquality = 13
 };
 
 uint8_t PublicTabOffset = 0;
@@ -824,6 +825,8 @@ uint8_t getConditionalOperator(uint8_t* Operator)
 
 uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t* VariableCount, uint32_t* ConditionalCount, uint8_t OptionalParam)
 {
+	uint8_t ConditionType = 0;
+
     uint8_t* String;
 
     //Jump Related Stuff.
@@ -836,7 +839,10 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
 
     uint32_t Loop = StartLocation;
 
-    //Write Original IF Statement.
+    if(!strcmp("if", TokenBuffer[StartLocation - 1])) ConditionType = 1;
+    else if(!strcmp("while", TokenBuffer[StartLocation - 1])) ConditionType = 2;
+
+    //Write Original Statement.
     do
     {
         Loop++;
@@ -850,6 +856,18 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
         fwrite(TokenBuffer[x], 1, strlen(TokenBuffer[x]), IntermediateFile);
 
     fwrite("\n\0", 1, 1, IntermediateFile);
+
+
+    //Checking Type Of Conditional.
+    if(ConditionType == 2)
+    {
+    	String = stringifyInstruction(2, JumpName, ":\n\0");
+
+    	fwrite(String, 1, strlen(String), IntermediateFile);
+    	free(String);
+
+    	++*ConditionalCount;
+    }
 
     //Not Complex.
     if (getConditionalOperator(TokenBuffer[StartLocation + 2]))
@@ -925,6 +943,13 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
             free(String);
         }
 
+        if(Value == Equality)
+        {
+            String = stringifyInstruction(4, INSTRUCTIONS[UnEquality], JumpName, "\n", END);
+            createTabOffset();
+            fwrite(String, 1, strlen(String), IntermediateFile);
+            free(String);
+        }
         //Getting Original Count and Comparing it with the new one.
         //So can clear variables.
         uint32_t OriginalVariableCount = *VariableCount;
@@ -938,6 +963,22 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
         	fwrite("pop eax\n", 1, 8, IntermediateFile);
         }
 
+        //Is a while loop.
+        if(ConditionType == 2)
+        {
+        	String = stringifyInstruction(3, "jmp ", JumpName, "\n\n\0");
+        	createTabOffset();
+
+        	fwrite(String, 1, strlen(String), IntermediateFile);
+        	free(String);
+
+
+            strcpy(JumpName, FunctionName);
+
+            sprintf(ConditionalBuffer, "%d", *ConditionalCount);
+            strcat(JumpName, ConditionalBuffer);
+        }
+
         String = stringifyInstruction(3, JumpName, ": ", END);
         fwrite(String, 1, strlen(String), IntermediateFile);
         free(String);
@@ -947,3 +988,5 @@ uint32_t writeConditionalOperations(uint8_t* FunctionName, uint32_t StartLocatio
 
     return 0;
 }
+
+

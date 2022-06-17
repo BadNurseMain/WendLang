@@ -112,7 +112,7 @@ uint16_t getFunctionParams(uint32_t Location)
 uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation, LocalNameStruct* Variables, uint32_t* VariableCount, uint32_t* ConditionalCount)
 {
     //For clearing stack later on.
-    uint32_t Precedence = 0, Loop = StartLocation, StackOffset = Variables[*VariableCount - 1].StackOffset;
+    uint32_t Precedence = 0, Loop = StartLocation, StackOffset = Variables[*VariableCount - 1].StackOffset / 4;
     uint32_t ReturnType = 0, ParameterCount = getParamCount(StartLocation);
     LocalNameStruct TempStruct = { 0 };
 
@@ -143,7 +143,7 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
                 TempStruct.Size = (uint16_t)Index;
                 
                 StackOffset += (uint32_t)Index;
-                TempStruct.StackOffset = 4 * (StackOffset++);
+                TempStruct.StackOffset = 4 * StackOffset;
 
                 //Not a valid Type.
                 if (!TempStruct.Type) return ARTH_INVALID_SIZE;
@@ -174,7 +174,7 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
             }
 
             TempStruct.Name = TokenBuffer[Loop - 1];
-            TempStruct.StackOffset = 4 * StackOffset++;
+            TempStruct.StackOffset = 4 * ++StackOffset;
             TempStruct.Size = 0;
 
             //Getting Size.
@@ -225,7 +225,7 @@ uint32_t writeFunctionInstructions(uint8_t* FunctionName, uint32_t StartLocation
             continue;
         }
 
-        if (!strcmp("if", TokenBuffer[Loop]))
+        if (!strcmp("if", TokenBuffer[Loop]) || !strcmp("while", TokenBuffer[Loop]))
         {
         	*ConditionalCount += 1;
             Loop = writeConditionalOperations(FunctionName, Loop + 1, Variables, VariableCount, ConditionalCount, 0);
@@ -375,7 +375,7 @@ uint8_t makeFunction(uint32_t Location)
     //Specifically for Function Calls.
     LocalNameStruct TempStruct = { 0 };
     TempStruct.Name = TokenBuffer[Location - 1];
-    TempStruct.StackOffset = StackOffset++ * 4;
+    TempStruct.StackOffset = 1 * 4;
     Variables[VariableCount++] = TempStruct;
 
     writeFunctionInstructions(TokenBuffer[Location], LoopOffset, Variables, &VariableCount, &ConditionalCount);

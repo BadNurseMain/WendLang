@@ -24,7 +24,7 @@ uint8_t OR[] = "or ";
 
 
 
-uint8_t INSTRUCTIONS[12][5] =
+uint8_t INSTRUCTIONS[14][5] =
 {
     "mul ",
     "div ",
@@ -37,7 +37,9 @@ uint8_t INSTRUCTIONS[12][5] =
     "shl ",
     "shr ",
     "jl ",
-    "jg "
+    "jg ",
+	"je ",
+	"jne "
 };
 
 //Stack Specific.

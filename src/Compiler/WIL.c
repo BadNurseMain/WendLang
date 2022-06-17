@@ -114,3 +114,4 @@ uint8_t generateIntermediateLanguage(FILE* ReturnFile)
 	generateFunctions(PublicNameBuffer[0]);
 	return 0;
 }
+
